@@ -64,66 +64,56 @@ WELCOME_REPLIES = [
 OPPORTUNITIES_BODIES = [
     (
         "💰 VIREON EARNING OPPORTUNITIES\n\n"
-        "Earn through multiple features on one platform:\n\n"
-        "• 📊 Surveys – Up to £5 per approved survey.\n"
-        "• 💬 Vireon Converse – Get paid for remote chat, virtual assistance, research, and "
-        "client support tasks.\n"
-        "• 🧠 Vireon IQ – £5 for every approved movie trailer/content review.\n"
-        "• 📞 CallCash – Earn up to ₦13,333 (£6.35) from qualifying international calls.\n"
-        "• 🔍 Google Monetization – Earn up to £5 daily from simple Google-related activities.\n"
-        "• 📌 Pin-to-Profit – Earn up to £3 through Pinterest activities.\n"
-        "• 🔥 Daily Login Streak – Earn up to £30 (₦60,000) every 30-day streak.\n"
-        "• 👻 Snap Pro – Earn £50 for approved Snapchat sounds, £5 per sound use, or up to £5 per "
-        "approved post.\n"
-        "• ✖️ X Revenue Program – Receive a £3 welcome reward plus ongoing campaign earnings.\n"
-        "• 🤝 Referral Rewards – Earn onboarding bonuses, partner rewards, and indirect "
-        "commissions.\n"
-        "• 💳 QuickLoan & EasyOwn – Access collateral-free loans and buy gadgets on installment "
-        "using your Vireon earnings.\n\n"
-        "💸 Withdrawal Options: Bank Transfer, Vireon Wallet/Credit, and VTU (Airtime & Data)."
+        "Earn through multiple features on one platform. 📊 Surveys pay up to £5 per approved "
+        "survey. 💬 Vireon Converse pays you for remote chat, virtual assistance, research, and "
+        "client support tasks. 🧠 Vireon IQ pays £5 for every approved movie trailer or content "
+        "review. 📞 CallCash lets you earn up to ₦13,333 (£6.35) from qualifying international "
+        "calls. 🔍 Google Monetization pays up to £5 daily from simple Google-related activities. "
+        "📌 Pin-to-Profit pays up to £3 through Pinterest activities. 🔥 The Daily Login Streak "
+        "pays up to £30 (₦60,000) every 30-day streak. 👻 Snap Pro pays £50 for approved "
+        "Snapchat sounds, £5 per sound use, and up to £5 per approved post. ✖️ The X Revenue "
+        "Program gives a £3 welcome reward plus ongoing campaign earnings. 🤝 Referral Rewards "
+        "pay onboarding bonuses, partner rewards, and indirect commissions. 💳 QuickLoan and "
+        "EasyOwn let you access collateral-free loans and buy gadgets on installment using your "
+        "Vireon earnings.\n\n"
+        "💸 Withdrawal options include bank transfer, Vireon wallet or credit, and VTU (airtime "
+        "and data)."
     ),
 ]
 
 # ── Step 3: signup link (personalised opener is added in code) ────────────
 SIGNUP_LINK_BODIES = [
     (
-        "Here's how to get started:\n\n"
-        "1️⃣ Tap the link below\n"
-        "2️⃣ Create your free Vireon Africa account\n"
-        "3️⃣ Pick any earning feature above and start completing activities\n\n"
+        "Here's how to get started. Tap the link below, create your free Vireon Africa account, "
+        "then pick any earning feature above and start completing activities.\n\n"
         f"👇 {SIGNUP_URL}\n\n"
-        "No fees, no stress — just sign up and start earning 🔥"
+        "No fees, no stress, just sign up and start earning 🔥"
     ),
     (
-        "Joining only takes a couple of minutes:\n\n"
-        "1️⃣ Click the link below\n"
-        "2️⃣ Register your free account\n"
-        "3️⃣ Start earning from surveys, referrals, and every other feature above\n\n"
+        "Joining only takes a couple of minutes. Click the link below, register your free "
+        "account, then start earning from surveys, referrals, and every other feature above.\n\n"
         f"👇 {SIGNUP_URL}\n\n"
         "Get in now and build your first stream of income 🔥"
     ),
     (
-        "Quick steps to get you in:\n\n"
-        "1️⃣ Open the link below\n"
-        "2️⃣ Complete the free registration\n"
-        "3️⃣ Explore the earning features and start cashing out\n\n"
+        "Here are the quick steps to get you in. Open the link below, complete the free "
+        "registration, then explore the earning features and start cashing out.\n\n"
         f"👇 {SIGNUP_URL}\n\n"
         "Let's get you earning 🔥"
     ),
 ]
 
 SIGNUP_LINK_REMINDER = (
-    "Here's your signup link again 👇\n"
-    f"{SIGNUP_URL}\n\n"
-    "It's completely free to join — sign up and you can start earning right away 🚀"
+    "Here's your signup link again.\n"
+    f"👇 {SIGNUP_URL}\n\n"
+    "It's completely free to join, so sign up and you can start earning right away 🚀"
 )
 
 REFERRAL_INFO_REPLY = (
     "🤝 Referral Rewards\n\n"
-    "Vireon pays you for growing the platform, not just using it:\n\n"
-    "• An onboarding bonus for every new member you bring in\n"
-    "• Ongoing partner rewards tied to your referrals' activity\n"
-    "• Indirect commissions as your network keeps earning\n\n"
+    "Vireon pays you for growing the platform, not just using it. You'll get an onboarding "
+    "bonus for every new member you bring in, ongoing partner rewards tied to your referrals' "
+    "activity, and indirect commissions as your network keeps earning.\n\n"
     "You'll get your personal referral link right inside the app after you sign up.\n\n"
     f"👇 {SIGNUP_URL}\n\n"
     "Ready to grab your spot and start referring? 🚀"
@@ -597,7 +587,7 @@ async def human_delay(event, client, min_sec: float = 4.0, max_sec: float = 9.0)
 
 async def already_replied(client, chat_id: int) -> bool:
     """True if the most recent outgoing message in this chat was NOT sent by
-    the bot — i.e. Clinton has personally jumped into the conversation.
+    the bot — i.e. you've personally jumped into the conversation.
 
     Guards:
     - If bot has never replied here (last_bot_msg_id is None), return False so
@@ -748,7 +738,7 @@ async def send_push_notification(title: str, body: str):
 
 async def preload_existing_chats(client):
     """Mark pre-existing contacts as owner-handled so the bot stays silent for
-    conversations Clinton is already managing. Contacts whose last message is
+    conversations you're already managing. Contacts whose last message is
     INCOMING and from TODAY are intentionally skipped — they're new leads who
     messaged while the bot was being set up and catch_up_unreplied() will
     welcome them."""
@@ -793,7 +783,7 @@ async def catch_up_unreplied(client):
     Phase 1 — collect candidates from dialog list (no per-dialog API calls).
     Phase 2 — sort oldest-first (first come, first served).
     Phase 3 — fetch real Telegram history for every candidate; if ANY outgoing
-               message exists Clinton has talked to them before → skip.
+               message exists you've talked to them before → skip.
                Only truly first-time contacts get the welcome.
                Sends with a minimal 0.5 s gap to stay under flood limits.
     """
@@ -845,7 +835,7 @@ async def catch_up_unreplied(client):
         username = getattr(entity, "username", None)
 
         # Always check real Telegram history before sending — if ANY outgoing
-        # message exists (even from before the bot was set up), Clinton has
+        # message exists (even from before the bot was set up), you've
         # talked to this person before and the bot must stay silent.
         try:
             recent = await client.get_messages(cid, limit=20)
@@ -2319,7 +2309,7 @@ async def handle_message(event, client):
             log.info(f"[{sender_name}] Owner-handled contact — silent")
             return
 
-        # ── 2. Clinton replied manually — hand the chat over for good ──────────
+        # ── 2. You replied manually — hand the chat over for good ─────────────
         if await already_replied(client, chat_id):
             set_stage(chat_id, STAGE_OWNER, sender_name, username)
             clear_pending(chat_id)
@@ -2506,7 +2496,7 @@ async def _telegram_task(client):
     state_loaded = load_state()
     if not state_loaded:
         # First run (no state file) — mark pre-existing chats so the bot doesn't
-        # auto-greet people Clinton already knows. On subsequent restarts we skip
+        # auto-greet people you already know. On subsequent restarts we skip
         # this so the bot can continue mid-flow conversations without re-silencing them.
         await preload_existing_chats(client)
     else:
