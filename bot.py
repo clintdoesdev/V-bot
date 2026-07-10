@@ -5,17 +5,22 @@ Railway-ready. Uses StringSession so no .session file needed.
 
 FLOW
 ----
-Every brand-new contact goes through one fixed sequence:
+A brand-new contact only enters the scripted funnel if their first message
+matches the start prompt (see START_PROMPT_PHRASES) — the exact opener
+advertised behind your "Message us" link/button. Anything else from a
+brand-new contact is queued for your personal reply instead. Once someone's
+in, they go through one fixed sequence:
   1. WELCOME     -> bot sends the Vireon Africa intro
   2. OPPORTUNITIES -> bot sends the about image with the earning-opportunities
                     list as its caption
   3. SIGNUP      -> once they signal they're ready to join, bot sends the free
                     signup/referral link
   4. HUMAN TAKEOVER -> anything that isn't a clean "next step" — someone
-     saying they've already joined, hesitation, small talk, flagged
-     messages — gets ZERO auto-reply. It's queued on the dashboard under
-     "Needs Your Reply" (with a push notification) so you can jump in
-     personally. The bot never improvises small talk.
+     who didn't use the start prompt, already joined, is hesitating, making
+     small talk, or sending a flagged message — gets ZERO auto-reply. It's
+     queued on the dashboard under "Needs Your Reply" (with a push
+     notification) so you can jump in personally. The bot never improvises
+     small talk.
 
 State survives restarts: chat progress + the pending-reply queue are written
 to STATE_FILE after every change, so a user who replies days later picks up
@@ -184,6 +189,20 @@ SCAM_KEYWORDS = [
 def is_scam_message(text: str) -> bool:
     t = text.lower()
     return any(kw in t for kw in SCAM_KEYWORDS)
+
+
+# The exact opener advertised behind your "Message us" link/button, e.g.
+# t.me/YourVendor?text=... New contacts are only auto-welcomed if their first
+# message matches this — anything else from a brand-new contact is queued for
+# your personal reply instead of triggering the scripted funnel.
+START_PROMPT_PHRASES = [
+    "vireon vendor",
+    "ready to register",
+]
+
+def matches_start_prompt(text: str) -> bool:
+    t = text.lower()
+    return any(p in t for p in START_PROMPT_PHRASES)
 
 
 ALREADY_JOINED_PHRASES = [
@@ -476,6 +495,7 @@ def set_stage(chat_id: int, stage: str, sender_name: str = None, username: str =
 
 
 PENDING_REASON_META = {
+    "off_script":       {"label": "Didn't use the start prompt", "icon": "ph-chat-circle-dots",  "cls": "rb-chat"},
     "already_joined":   {"label": "Already joined/registered", "icon": "ph-receipt",             "cls": "rb-pay"},
     "hesitant":         {"label": "Hesitant / not ready",       "icon": "ph-hourglass-medium",   "cls": "rb-hesit"},
     "chitchat":         {"label": "Just chatting",              "icon": "ph-chat-teardrop-text", "cls": "rb-chat"},
@@ -855,7 +875,15 @@ async def catch_up_unreplied(client):
             log.warning(f"[{sender_name}] History check failed: {e}")
             continue
 
-        # No outgoing messages at all — truly a new contact, send welcome
+        # No outgoing messages at all — truly a new contact. Only auto-welcome
+        # if their message used the start prompt; otherwise queue it for you.
+        last_msg = dialog.message
+        msg_text = getattr(last_msg, "raw_text", None) or "" if last_msg else ""
+        if not matches_start_prompt(msg_text):
+            add_pending(cid, sender_name, username, "off_script", msg_text or "[no text]")
+            log.info(f"[{sender_name}] Catch-up: didn't use the start prompt — queued for reply")
+            continue
+
         if bot_paused:
             log.info(f"[{sender_name}] Catch-up paused — stopping")
             break
@@ -1797,6 +1825,7 @@ DASHBOARD_HTML = """\
 
   // ── Needs Your Reply ─────────────────────────────────────────────────────
   var REASON_META = {
+    off_script:       {label:'Didn\'t use the start prompt', icon:'ph-chat-circle-dots', cls:'rb-chat'},
     already_joined:   {label:'Already joined/registered', icon:'ph-receipt',           cls:'rb-pay'},
     hesitant:         {label:'Hesitant / not ready',       icon:'ph-hourglass-medium',  cls:'rb-hesit'},
     chitchat:         {label:'Just chatting',              icon:'ph-chat-teardrop-text',cls:'rb-chat'},
@@ -2243,7 +2272,8 @@ async def api_logs(request: Request):
 #   5. Already joined/registered                     -> flag, silence
 #   6. Hesitation                                    -> flag, silence
 #   7. Chit-chat with nothing actionable in it        -> flag (low priority), silence
-#   8. Brand-new contact                              -> send welcome message
+#   8. Brand-new contact using the start prompt        -> send welcome message
+#      Brand-new contact NOT using the start prompt    -> flag, silence
 #   9. Referral program question                      -> answer directly
 #  10. Clear "I'm ready / let's go / how do we continue" -> signup link
 #  11. Specific product question                     -> send earning opportunities
@@ -2346,8 +2376,12 @@ async def handle_message(event, client):
         log.info(f"[{sender_name}] Chit-chat — needs a reply")
         return
 
-    # ── 8. Brand-new contact — send the welcome message ────────────────────────
+    # ── 8. Brand-new contact — only auto-welcome if they used the start prompt ─
     if stage == STAGE_NEW:
+        if not (text and matches_start_prompt(text)):
+            add_pending(chat_id, sender_name, username, "off_script", text or "[no text]")
+            log.info(f"[{sender_name}] New contact didn't use the start prompt — needs a reply")
+            return
         await human_delay(event, client, 6.0, 11.0)
         await send_reply(event, random.choice(WELCOME_REPLIES))
         set_stage(chat_id, STAGE_WELCOMED, sender_name, username)
