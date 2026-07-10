@@ -49,7 +49,7 @@ ABOUT_IMAGE_URL = os.environ.get(
     "https://vireonwebsite.com.ng/assets/images/about.jpg",
 )
 
-# ── Step 1: first contact — the Vireon Africa welcome ──────────────────────
+# ── Step 1: first contact — the Vireon Africa welcome, then ask their name ──
 WELCOME_REPLIES = [
     (
         "💙 WELCOME TO VIREON AFRICA 🌍\n\n"
@@ -59,7 +59,8 @@ WELCOME_REPLIES = [
         "remote assistance, social media engagement, and more because the feedback and activities "
         "help improve products, services, and business decisions.\n\n"
         "With Vireon, you can work from anywhere, complete simple online activities at your "
-        "convenience, and build multiple streams of income from a single platform."
+        "convenience, and build multiple streams of income from a single platform.\n\n"
+        "Before we go any further, I'd love to know, what's your name?"
     ),
 ]
 
@@ -367,8 +368,29 @@ def matches_referral_inquiry(text: str) -> bool:
     return any(p in t for p in REFERRAL_TRIGGERS)
 
 
+_NAME_LEAD_PHRASES = ("my name is ", "i am ", "i'm ", "im ", "its ", "it's ", "name is ", "name:")
+
+def extract_name(text: str, fallback: str = "") -> str:
+    """Best-effort extraction of a name from a free-text reply."""
+    t = (text or "").strip()
+    if not t:
+        return fallback
+    low = t.lower()
+    for lead in _NAME_LEAD_PHRASES:
+        if low.startswith(lead):
+            t = t[len(lead):].strip()
+            break
+    words = [w for w in t.split() if re.match(r"^[A-Za-z'\-]+$", w)]
+    if not words:
+        return fallback
+    name = " ".join(words[:3])
+    if len(name) > 40:
+        return fallback
+    return name.title()
+
+
 # ─── Persisted state ───────────────────────────────────────────────────────
-# chat_states[chat_id]    = {stage, display_name, username, first_seen,
+# chat_states[chat_id]    = {stage, name, display_name, username, first_seen,
 #                             last_seen, last_bot_msg_id}
 # pending_review[chat_id] = {name, username, reason, text, time}
 chat_states: dict = {}
@@ -482,13 +504,19 @@ def get_stage(chat_id: int) -> str:
     return chat_states.get(chat_id, {}).get("stage", STAGE_NEW)
 
 
-def set_stage(chat_id: int, stage: str, sender_name: str = None, username: str = None):
+def get_name(chat_id: int) -> str:
+    return chat_states.get(chat_id, {}).get("name") or ""
+
+
+def set_stage(chat_id: int, stage: str, sender_name: str = None, username: str = None, name: str = None):
     cs = chat_states.setdefault(chat_id, {})
     cs["stage"] = stage
     if sender_name:
         cs["display_name"] = sender_name
     if username is not None:
         cs["username"] = username
+    if name:
+        cs["name"] = name
     cs["last_seen"] = _now_iso()
     cs.setdefault("first_seen", cs["last_seen"])
     save_state()
@@ -2408,8 +2436,9 @@ async def handle_message(event, client):
             _record_action(sender_name, "signup")
             log.info(f"[{sender_name}] Sent: signup link reminder")
             return
+        name = get_name(chat_id)
         await human_delay(event, client, 5.0, 10.0)
-        await send_reply(event, build_signup_message())
+        await send_reply(event, build_signup_message(name))
         set_stage(chat_id, STAGE_SIGNUP, sender_name, username)
         pipeline["signup_sent"] += 1
         _record_action(sender_name, "signup")
@@ -2418,8 +2447,9 @@ async def handle_message(event, client):
 
     # ── 11. Specific product question — answer with the opportunities list ────
     if text and matches_info_request(text):
+        name = get_name(chat_id)
         await human_delay(event, client, 5.0, 9.0)
-        await send_reply_with_image(event, build_opportunities_message(), ABOUT_IMAGE_URL)
+        await send_reply_with_image(event, build_opportunities_message(name), ABOUT_IMAGE_URL)
         if stage in (STAGE_NEW, STAGE_WELCOMED):
             set_stage(chat_id, STAGE_EXPLAINED, sender_name, username)
             pipeline["info_sent"] += 1
@@ -2427,14 +2457,15 @@ async def handle_message(event, client):
         log.info(f"[{sender_name}] Sent: earning opportunities (asked directly)")
         return
 
-    # ── 12. Any reply right after the welcome -> send the opportunities list ──
+    # ── 12. Reply right after the welcome = their name -> opportunities list ──
     if stage == STAGE_WELCOMED:
+        name = extract_name(text, fallback=sender.first_name or "")
         await human_delay(event, client, 5.0, 10.0)
-        await send_reply_with_image(event, build_opportunities_message(), ABOUT_IMAGE_URL)
-        set_stage(chat_id, STAGE_EXPLAINED, sender_name, username)
+        await send_reply_with_image(event, build_opportunities_message(name), ABOUT_IMAGE_URL)
+        set_stage(chat_id, STAGE_EXPLAINED, sender_name, username, name=name)
         pipeline["info_sent"] += 1
         _record_action(sender_name, "info")
-        log.info(f"[{sender_name}] Sent: earning opportunities")
+        log.info(f"[{sender_name}] Sent: earning opportunities (name: {name!r})")
         return
 
     # ── 13. Unrecognised message at signup stage — resend the link ────────────
@@ -2455,12 +2486,14 @@ async def handle_message(event, client):
     log.info(f"[{sender_name}] No matching rule — silent")
 
 
-def build_opportunities_message() -> str:
-    return random.choice(OPPORTUNITIES_BODIES)
+def build_opportunities_message(name: str = "") -> str:
+    opener = f"Great to meet you, {name}! 🎉\n\n" if name else "Great to meet you! 🎉\n\n"
+    return opener + random.choice(OPPORTUNITIES_BODIES)
 
 
-def build_signup_message() -> str:
-    opener = "🟡 Perfect! You're just one step away from earning with Vireon Africa.\n\n"
+def build_signup_message(name: str = "") -> str:
+    who = name or "friend"
+    opener = f"🟡 Perfect, {who}! You're just one step away from earning with Vireon Africa.\n\n"
     return opener + random.choice(SIGNUP_LINK_BODIES)
 
 
