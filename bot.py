@@ -13,8 +13,8 @@ in, they go through one fixed sequence:
   1. WELCOME     -> bot sends the Vireon Africa intro
   2. OPPORTUNITIES -> bot sends the about image with the earning-opportunities
                     list as its caption
-  3. SIGNUP      -> once they signal they're ready to join, bot sends the free
-                    signup/referral link
+  3. SIGNUP      -> once they signal they're ready to join, bot sends the
+                    signup/referral link and the registration fee
   4. HUMAN TAKEOVER -> anything that isn't a clean "next step" — someone
      who didn't use the start prompt, already joined, is hesitating, making
      small talk, or sending a flagged message — gets ZERO auto-reply. It's
@@ -42,6 +42,10 @@ import os
 # without touching any code. This should be your real Vireon Africa signup
 # or referral link.
 SIGNUP_URL = os.environ.get("SIGNUP_URL", "https://vireonwebsite.com.ng/register")
+
+# One-time registration fee to unlock Vireon Premiere and the full set of
+# earning features. Quoted wherever a reply mentions the cost of joining.
+REGISTRATION_FEE = os.environ.get("REGISTRATION_FEE", "₦14,500")
 
 # Image sent alongside step 2 (the earning-opportunities message).
 ABOUT_IMAGE_URL = os.environ.get(
@@ -84,6 +88,8 @@ OPPORTUNITIES_BODIES = [
         "💳 QuickLoan & EasyOwn – Access collateral-free loans and buy gadgets on installment "
         "using your Vireon earnings.\n\n"
         "💸 Withdrawal Options: Bank Transfer, Vireon Wallet/Credit, and VTU (Airtime & Data).\n\n"
+        f"💳 Registration Fee: {REGISTRATION_FEE} one-time, to unlock Vireon Premiere and every "
+        "earning feature above.\n\n"
         "Are you ready to register? 🚀"
     ),
 ]
@@ -91,20 +97,22 @@ OPPORTUNITIES_BODIES = [
 # ── Step 3: signup link (personalised opener is added in code) ────────────
 SIGNUP_LINK_BODIES = [
     (
-        "Here's how to get started. Tap the link below, create your free Vireon Africa account, "
-        "then pick any earning feature above and start completing activities.\n\n"
+        "Here's how to get started. Tap the link below, create your Vireon Africa account, then "
+        f"join Vireon Premiere ({REGISTRATION_FEE}) to unlock every earning feature above.\n\n"
         f"👇 {SIGNUP_URL}\n\n"
-        "No fees, no stress, just sign up and start earning 🔥"
+        "Quick and straightforward, let's get you earning 🔥"
     ),
     (
-        "Joining only takes a couple of minutes. Click the link below, register your free "
-        "account, then start earning from surveys, referrals, and every other feature above.\n\n"
+        "Joining only takes a couple of minutes. Click the link below, register your account, "
+        f"then complete the {REGISTRATION_FEE} Vireon Premiere registration to start earning "
+        "from surveys, referrals, and every other feature above.\n\n"
         f"👇 {SIGNUP_URL}\n\n"
         "Get in now and build your first stream of income 🔥"
     ),
     (
-        "Here are the quick steps to get you in. Open the link below, complete the free "
-        "registration, then explore the earning features and start cashing out.\n\n"
+        "Here are the quick steps to get you in. Open the link below, complete your "
+        f"registration, then join Vireon Premiere ({REGISTRATION_FEE}) to unlock the earning "
+        "features and start cashing out.\n\n"
         f"👇 {SIGNUP_URL}\n\n"
         "Let's get you earning 🔥"
     ),
@@ -113,7 +121,8 @@ SIGNUP_LINK_BODIES = [
 SIGNUP_LINK_REMINDER = (
     "Here's your signup link again.\n"
     f"👇 {SIGNUP_URL}\n\n"
-    "It's completely free to join, so sign up and you can start earning right away 🚀"
+    f"It's a one-time {REGISTRATION_FEE} to join Vireon Premiere, then you can start earning "
+    "right away 🚀"
 )
 
 REFERRAL_INFO_REPLY = (
