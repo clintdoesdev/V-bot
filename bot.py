@@ -49,41 +49,42 @@ ABOUT_IMAGE_URL = os.environ.get(
     "https://vireonwebsite.com.ng/assets/images/about.jpg",
 )
 
-# ── Step 1: first contact — the Vireon Africa welcome, then ask their name ──
+# ── Step 1: first contact — a short Vireon Africa welcome, then ask their
+#    name. Kept to 4 lines max so it reads well as a chat bubble.
 WELCOME_REPLIES = [
     (
-        "💙 WELCOME TO VIREON AFRICA 🌍\n\n"
-        "Vireon is an international digital rewards platform that connects users with multiple "
-        "online earning opportunities by partnering with global brands and businesses. Companies "
-        "pay for valuable user participation through surveys, content reviews, online tasks, "
-        "remote assistance, social media engagement, and more because the feedback and activities "
-        "help improve products, services, and business decisions.\n\n"
-        "With Vireon, you can work from anywhere, complete simple online activities at your "
-        "convenience, and build multiple streams of income from a single platform.\n\n"
-        "Before we go any further, I'd love to know, what's your name?"
+        "💙 Welcome to Vireon Africa 🌍\n\n"
+        "An international rewards platform, earn from surveys, remote tasks, reviews, and "
+        "referrals, all in one place.\n\n"
+        "Ready to get started? What's your name?"
     ),
 ]
 
 # ── Step 2: earning opportunities — sent as an image (ABOUT_IMAGE_URL) with
-#    this text as the caption. Each entry is a variation; the bot picks one
-#    at random.
+#    this text as the caption. Each feature gets its own line with a blank
+#    line between them so it's easy to scan on a phone. Each entry is a
+#    variation; the bot picks one at random.
 OPPORTUNITIES_BODIES = [
     (
         "💰 VIREON EARNING OPPORTUNITIES\n\n"
-        "Earn through multiple features on one platform. 📊 Surveys pay up to £5 per approved "
-        "survey. 💬 Vireon Converse pays you for remote chat, virtual assistance, research, and "
-        "client support tasks. 🧠 Vireon IQ pays £5 for every approved movie trailer or content "
-        "review. 📞 CallCash lets you earn up to ₦13,333 (£6.35) from qualifying international "
-        "calls. 🔍 Google Monetization pays up to £5 daily from simple Google-related activities. "
-        "📌 Pin-to-Profit pays up to £3 through Pinterest activities. 🔥 The Daily Login Streak "
-        "pays up to £30 (₦60,000) every 30-day streak. 👻 Snap Pro pays £50 for approved "
-        "Snapchat sounds, £5 per sound use, and up to £5 per approved post. ✖️ The X Revenue "
-        "Program gives a £3 welcome reward plus ongoing campaign earnings. 🤝 Referral Rewards "
-        "pay onboarding bonuses, partner rewards, and indirect commissions. 💳 QuickLoan and "
-        "EasyOwn let you access collateral-free loans and buy gadgets on installment using your "
-        "Vireon earnings.\n\n"
-        "💸 Withdrawal options include bank transfer, Vireon wallet or credit, and VTU (airtime "
-        "and data)."
+        "Earn through multiple features on one platform.\n\n"
+        "📊 Surveys – Up to £5 per approved survey.\n\n"
+        "💬 Vireon Converse – Get paid for remote chat, virtual assistance, research, and "
+        "client support tasks.\n\n"
+        "🧠 Vireon IQ – £5 for every approved movie trailer or content review.\n\n"
+        "📞 CallCash – Earn up to ₦13,333 (£6.35) from qualifying international calls.\n\n"
+        "🔍 Google Monetization – Earn up to £5 daily from simple Google-related activities.\n\n"
+        "📌 Pin-to-Profit – Earn up to £3 through Pinterest activities.\n\n"
+        "🔥 Daily Login Streak – Earn up to £30 (₦60,000) every 30-day streak.\n\n"
+        "👻 Snap Pro – Earn £50 for approved Snapchat sounds, £5 per sound use, or up to £5 "
+        "per approved post.\n\n"
+        "✖️ X Revenue Program – Receive a £3 welcome reward plus ongoing campaign earnings.\n\n"
+        "🤝 Referral Rewards – Earn onboarding bonuses, partner rewards, and indirect "
+        "commissions.\n\n"
+        "💳 QuickLoan & EasyOwn – Access collateral-free loans and buy gadgets on installment "
+        "using your Vireon earnings.\n\n"
+        "💸 Withdrawal Options: Bank Transfer, Vireon Wallet/Credit, and VTU (Airtime & Data).\n\n"
+        "Are you ready to register? 🚀"
     ),
 ]
 
