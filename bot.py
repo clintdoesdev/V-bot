@@ -2339,7 +2339,11 @@ async def handle_message(event, client):
     # ── Test account — always gets a reply. "stats"/"status" pulls live stats;
     #    "reset" wipes this chat's saved progress so the next message replays
     #    the whole funnel from the welcome message instead of resuming where
-    #    a previous test run left off ─────────────────────────────────────────
+    #    a previous test run left off. Ending ANY message with ">>" does both
+    #    in one shot — wipes the saved progress AND immediately sends the
+    #    welcome, so you can retest the whole flow from scratch without
+    #    sending "reset" as a separate message first. Without ">>", messages
+    #    fall through to the normal stage-aware funnel logic as usual ───────
     if is_test_user:
         cmd = text.lower().strip().lstrip("/")
         if cmd in ("stats", "status"):
@@ -2355,6 +2359,17 @@ async def handle_message(event, client):
                 "🔄 Reset done — send any message to start the flow again from the welcome message.",
             )
             log.info(f"[{sender_name}] Test user reset their chat state")
+            return
+        if text.rstrip().endswith(">>"):
+            chat_states.pop(chat_id, None)
+            clear_pending(chat_id)
+            await human_delay(event, client, 6.0, 11.0)
+            await send_reply(event, random.choice(WELCOME_REPLIES))
+            set_stage(chat_id, STAGE_WELCOMED, sender_name, username)
+            stats["new_chats_today"] += 1
+            pipeline["welcomed"] += 1
+            _record_action(sender_name, "welcome")
+            log.info(f"[{sender_name}] Test user restart trigger (>>) — reset and sent welcome")
             return
     else:
         # ── 0. Bot paused — master kill switch ─────────────────────────────────
