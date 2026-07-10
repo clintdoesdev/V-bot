@@ -58,38 +58,43 @@ ABOUT_IMAGE_URL = os.environ.get(
 WELCOME_REPLIES = [
     (
         "💙 Welcome to Vireon Africa 🌍\n\n"
-        "An international rewards platform, earn from surveys, remote tasks, reviews, and "
-        "referrals, all in one place.\n\n"
+        "You get to earn from surveys, remote tasks, reviews, and referrals, all from one "
+        "place, wherever you are.\n\n"
         "Ready to get started? What's your name?"
     ),
 ]
 
 # ── Step 2: earning opportunities — sent as an image (ABOUT_IMAGE_URL) with
 #    this text as the caption. Each feature gets its own line with a blank
-#    line between them so it's easy to scan on a phone. Each entry is a
-#    variation; the bot picks one at random.
+#    line between them so it's easy to scan on a phone. Everything is framed
+#    in 2nd person ("you earn/pocket/withdraw/pay") rather than describing
+#    the feature in the abstract. Each entry is a variation; the bot picks
+#    one at random.
 OPPORTUNITIES_BODIES = [
     (
         "💰 VIREON EARNING OPPORTUNITIES\n\n"
-        "Earn through multiple features on one platform.\n\n"
-        "📊 Surveys – Up to £5 per approved survey.\n\n"
-        "💬 Vireon Converse – Get paid for remote chat, virtual assistance, research, and "
+        "You get to earn through multiple features on one platform.\n\n"
+        "📊 Surveys – You earn up to £5 per approved survey.\n\n"
+        "💬 Vireon Converse – You get paid for remote chat, virtual assistance, research, and "
         "client support tasks.\n\n"
-        "🧠 Vireon IQ – £5 for every approved movie trailer or content review.\n\n"
-        "📞 CallCash – Earn up to ₦13,333 (£6.35) from qualifying international calls.\n\n"
-        "🔍 Google Monetization – Earn up to £5 daily from simple Google-related activities.\n\n"
-        "📌 Pin-to-Profit – Earn up to £3 through Pinterest activities.\n\n"
-        "🔥 Daily Login Streak – Earn up to £30 (₦60,000) every 30-day streak.\n\n"
-        "👻 Snap Pro – Earn £50 for approved Snapchat sounds, £5 per sound use, or up to £5 "
-        "per approved post.\n\n"
-        "✖️ X Revenue Program – Receive a £3 welcome reward plus ongoing campaign earnings.\n\n"
-        "🤝 Referral Rewards – Earn onboarding bonuses, partner rewards, and indirect "
+        "🧠 Vireon IQ – You pocket £5 for every approved movie trailer or content review.\n\n"
+        "📞 CallCash – You earn up to ₦13,333 (£6.35) from qualifying international calls.\n\n"
+        "🔍 Google Monetization – You collect up to £5 daily from simple Google-related "
+        "activities.\n\n"
+        "📌 Pin-to-Profit – You earn up to £3 through Pinterest activities.\n\n"
+        "🔥 Daily Login Streak – You bank up to £30 (₦60,000) every 30-day streak.\n\n"
+        "👻 Snap Pro – You earn £50 for approved Snapchat sounds, £5 per sound use, or up to "
+        "£5 per approved post.\n\n"
+        "✖️ X Revenue Program – You receive a £3 welcome reward plus ongoing campaign "
+        "earnings.\n\n"
+        "🤝 Referral Rewards – You earn onboarding bonuses, partner rewards, and indirect "
         "commissions.\n\n"
-        "💳 QuickLoan & EasyOwn – Access collateral-free loans and buy gadgets on installment "
-        "using your Vireon earnings.\n\n"
-        "💸 Withdrawal Options: Bank Transfer, Vireon Wallet/Credit, and VTU (Airtime & Data).\n\n"
-        f"💳 Registration Fee: {REGISTRATION_FEE} one-time, to unlock Vireon Premiere and every "
-        "earning feature above.\n\n"
+        "💳 QuickLoan & EasyOwn – You get access to collateral-free loans and can buy gadgets "
+        "on installment using your Vireon earnings.\n\n"
+        "💸 Withdrawal Options – You get to withdraw via Bank Transfer, Vireon Wallet/Credit, "
+        "or VTU (Airtime & Data).\n\n"
+        f"💳 Registration Fee – You pay a one-time {REGISTRATION_FEE} to unlock Vireon Premiere "
+        "and every earning feature above.\n\n"
         "Are you ready to register? 🚀"
     ),
 ]
@@ -127,8 +132,8 @@ SIGNUP_LINK_REMINDER = (
 
 REFERRAL_INFO_REPLY = (
     "🤝 Referral Rewards\n\n"
-    "Vireon pays you for growing the platform, not just using it. You'll get an onboarding "
-    "bonus for every new member you bring in, ongoing partner rewards tied to your referrals' "
+    "You get paid for growing the platform, not just using it. You earn an onboarding bonus "
+    "for every new member you bring in, ongoing partner rewards tied to your referrals' "
     "activity, and indirect commissions as your network keeps earning.\n\n"
     "You'll get your personal referral link right inside the app after you sign up.\n\n"
     f"👇 {SIGNUP_URL}\n\n"
