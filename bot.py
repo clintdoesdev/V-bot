@@ -148,7 +148,7 @@ import uvicorn
 # ─── Config ──────────────────────────────────────────────────────────────────
 API_ID            = int(os.environ["API_ID"])
 API_HASH          = os.environ["API_HASH"]
-SESSION_STR       = os.environ.get("SESSION_STRING", "")
+SESSION_STR       = os.environ.get("SESSION_STRING", "").strip()
 VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY", "")
 VAPID_PUBLIC_KEY  = os.environ.get("VAPID_PUBLIC_KEY", "")
 PORT              = int(os.environ.get("PORT", 8080))
@@ -2551,8 +2551,18 @@ async def _telegram_task(client):
 
 
 async def main():
-    session = StringSession(SESSION_STR) if SESSION_STR else StringSession()
-    client  = TelegramClient(session, API_ID, API_HASH)
+    try:
+        session = StringSession(SESSION_STR) if SESSION_STR else StringSession()
+    except ValueError:
+        log.error(
+            "SESSION_STRING is set but isn't a valid Telethon session string "
+            "(it must start with '1'). Generate one by running `python bot.py` "
+            "locally with SESSION_STRING unset, completing the phone/code/2FA "
+            "login prompts, and copying the exact string it prints — then set "
+            "that as SESSION_STRING with no extra quotes or whitespace."
+        )
+        raise
+    client = TelegramClient(session, API_ID, API_HASH)
 
     @client.on(events.NewMessage(incoming=True))
     async def dispatcher(event):
