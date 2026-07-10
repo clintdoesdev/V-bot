@@ -41,7 +41,7 @@ import os
 # Set the SIGNUP_URL env var to change the link everywhere it's quoted below
 # without touching any code. This should be your real Vireon Africa signup
 # or referral link.
-SIGNUP_URL = os.environ.get("SIGNUP_URL", "https://vireonwebsite.com.ng/register")
+SIGNUP_URL = os.environ.get("SIGNUP_URL", "https://vireonwebsite.com.ng/payments")
 
 # One-time registration fee to unlock Vireon Premiere and the full set of
 # earning features. Quoted wherever a reply mentions the cost of joining.
