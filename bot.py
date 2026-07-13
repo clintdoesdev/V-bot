@@ -7,9 +7,13 @@ FLOW
 ----
 A brand-new contact only enters the scripted funnel if their first message
 matches the start prompt (see START_PROMPT_PHRASES) — the exact opener
-advertised behind your "Message us" link/button. Anything else from a
-brand-new contact is queued for your personal reply instead. Once someone's
-in, they go through one fixed sequence:
+advertised behind your "Message us" link/button — OR already shows clear
+payment/join intent (see JOIN_KEYWORDS), e.g. "I'm ready to make payments
+for Vireon Premiere, please drop the payment link" — in which case the
+welcome/opportunities pitch is skipped and the signup link is sent
+immediately. Anything else from a brand-new contact is queued for your
+personal reply instead. Once someone's in the scripted flow, they go
+through one fixed sequence:
   1. WELCOME     -> bot sends the Vireon Africa intro
   2. OPPORTUNITIES -> bot sends the about image with the earning-opportunities
                     list as its caption
@@ -330,6 +334,12 @@ JOIN_KEYWORDS = [
     "send the link", "send me the link", "drop the link", "share the link",
     "link please", "signup link please", "send me the signup link",
     "send me the registration link", "registration link please",
+    # payment-ready phrasing
+    "ready to make payment", "ready to make payments", "i want to make payment",
+    "i want to make payments", "ready to pay", "i'm ready to pay", "im ready to pay",
+    "drop the payment link", "send the payment link", "send me the payment link",
+    "payment link please", "vireon premiere payment", "pay for vireon premiere",
+    "pay for premiere", "make payment for vireon premiere",
 ]
 
 # Words that negate readiness/action — short messages with these are NOT join intent
@@ -2315,8 +2325,9 @@ async def api_logs(request: Request):
 #   5. Already joined/registered                     -> flag, silence
 #   6. Hesitation                                    -> flag, silence
 #   7. Chit-chat with nothing actionable in it        -> flag (low priority), silence
-#   8. Brand-new contact using the start prompt        -> send welcome message
-#      Brand-new contact NOT using the start prompt    -> flag, silence
+#   8. Brand-new contact already asking to pay/register -> signup link directly
+#      Brand-new contact using the start prompt        -> send welcome message
+#      Brand-new contact NOT using either               -> flag, silence
 #   9. Referral program question                      -> answer directly
 #  10. Clear "I'm ready / let's go / how do we continue" -> signup link
 #  11. Specific product question                     -> send earning opportunities
@@ -2434,8 +2445,20 @@ async def handle_message(event, client):
         log.info(f"[{sender_name}] Chit-chat — needs a reply")
         return
 
-    # ── 8. Brand-new contact — only auto-welcome if they used the start prompt ─
+    # ── 8. Brand-new contact ────────────────────────────────────────────────
     if stage == STAGE_NEW:
+        # Already asking to pay/register ("I'm ready to make payments for
+        # Vireon Premiere, please drop the payment link") — skip the pitch
+        # entirely and just drop the signup/payment link with its write-up.
+        if text and matches_join_intent(text):
+            await human_delay(event, client, 5.0, 10.0)
+            await send_reply(event, build_signup_message())
+            set_stage(chat_id, STAGE_SIGNUP, sender_name, username)
+            stats["new_chats_today"] += 1
+            pipeline["signup_sent"] += 1
+            _record_action(sender_name, "signup")
+            log.info(f"[{sender_name}] New contact already payment-ready — sent signup link directly")
+            return
         if not (text and matches_start_prompt(text)):
             add_pending(chat_id, sender_name, username, "off_script", text or "[no text]")
             log.info(f"[{sender_name}] New contact didn't use the start prompt — needs a reply")
