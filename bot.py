@@ -94,11 +94,11 @@ SOCIAL_WELCOME_REPLIES = [
 
 SOCIAL_EXPLAINER_BODIES = [
     (
-        "Nice to meet you, {name}! Vireon is a rewards platform where you get paid for "
-        "everyday online activity, surveys, quick tasks, reviews, and more.\n\n"
-        "Everything you need to see how it works and register yourself is right here 👇\n"
+        "Nice to meet you, {name}. Vireon is a rewards platform that pays you for everyday "
+        "online activity, surveys, quick tasks, and reviews.\n\n"
+        "Everything you need to register is right here 👇\n"
         f"{SOCIAL_CHANNEL_URL}\n\n"
-        "Go ahead and check it out, you don't want to miss this 🔥"
+        "Go through it and complete your registration to get started."
     ),
 ]
 
