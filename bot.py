@@ -26,6 +26,14 @@ through one fixed sequence:
      notification) so you can jump in personally. The bot never improvises
      small talk.
 
+A brand-new contact can also enter a second, separate flow instead — a
+social-referral opener (see matches_social_interest), e.g. "From TikTok,
+I'm Interested in getting started with Vireon". This runs a shorter script:
+welcome -> ask their name -> a subtle explanation of Vireon + the public
+Telegram channel link (SOCIAL_CHANNEL_URL) to self-register. Once that link
+is sent, the bot goes silent for that chat for good — nothing else is
+auto-replied.
+
 State survives restarts: chat progress + the pending-reply queue are written
 to STATE_FILE after every change, so a user who replies days later picks up
 exactly where they left off.
@@ -65,6 +73,32 @@ WELCOME_REPLIES = [
         "You get to earn from surveys, remote tasks, reviews, and referrals, all from one "
         "place, wherever you are.\n\n"
         "Ready to get started? What's your name?"
+    ),
+]
+
+# ── Social-referral entry point: TikTok/Instagram/etc. "interested" openers
+#    (see matches_social_interest). Shorter script than the main funnel —
+#    welcome, ask their name, then a subtle explanation + the public
+#    Telegram channel link to self-register. Nothing further is sent after
+#    this — see STAGE_SOCIAL_SENT in handle_message.
+SOCIAL_CHANNEL_URL = os.environ.get(
+    "SOCIAL_CHANNEL_URL", "https://t.me/vireonofficials/4"
+)
+
+SOCIAL_WELCOME_REPLIES = [
+    (
+        "💙 Hey, welcome to Vireon Africa 🌍\n\n"
+        "Great that you found us! Quick one before we go further, what's your name?"
+    ),
+]
+
+SOCIAL_EXPLAINER_BODIES = [
+    (
+        "Nice to meet you, {name}! Vireon is a rewards platform where you get paid for "
+        "everyday online activity, surveys, quick tasks, reviews, and more.\n\n"
+        "Everything you need to see how it works and register yourself is right here 👇\n"
+        f"{SOCIAL_CHANNEL_URL}\n\n"
+        "Go ahead and check it out, you don't want to miss this 🔥"
     ),
 ]
 
@@ -194,6 +228,8 @@ STAGE_WELCOMED = "welcomed"        # welcome message sent, opportunities not sen
 STAGE_EXPLAINED = "explained"      # earning-opportunities message has been sent
 STAGE_SIGNUP   = "signup_sent"     # signup/referral link has been sent
 STAGE_OWNER    = "owner_handling"  # pre-existing contact, or you stepped in manually — bot is silent forever
+STAGE_SOCIAL_WELCOMED = "social_welcomed"  # social-referral welcome sent, waiting on name
+STAGE_SOCIAL_SENT     = "social_link_sent" # subtle explanation + t.me link sent — done, silent
 
 # ─── Scam filter ─────────────────────────────────────────────────────────────
 SCAM_KEYWORDS = [
@@ -223,6 +259,31 @@ START_PROMPT_PHRASES = [
 def matches_start_prompt(text: str) -> bool:
     t = text.lower()
     return any(p in t for p in START_PROMPT_PHRASES)
+
+
+# A second, separate opener for leads coming in from social media, e.g.
+# "From TikTok, I'm Interested in getting started with Vireon". Mentions a
+# source PLUS interest in Vireon. Runs a shorter script than the main
+# funnel (see SOCIAL_WELCOME_REPLIES / SOCIAL_EXPLAINER_BODIES below) that
+# ends in the public Telegram channel link instead of the payment page.
+SOCIAL_SOURCE_PHRASES = [
+    "tiktok", "instagram", "facebook", "whatsapp status", "snapchat",
+    "youtube", "twitter", "from x", "saw this on", "saw an ad",
+    "saw your video", "saw your post", "someone sent me this",
+    "someone shared this", "referred me",
+]
+
+SOCIAL_INTEREST_PHRASES = [
+    "interested in", "interested to", "i'm interested", "im interested",
+    "getting started with vireon", "get started with vireon",
+    "how do i join vireon", "want to know more about vireon",
+]
+
+def matches_social_interest(text: str) -> bool:
+    t = text.lower()
+    has_source = any(p in t for p in SOCIAL_SOURCE_PHRASES)
+    has_interest = any(p in t for p in SOCIAL_INTEREST_PHRASES) or "vireon" in t
+    return has_source and has_interest
 
 
 ALREADY_JOINED_PHRASES = [
@@ -2320,18 +2381,21 @@ async def api_logs(request: Request):
 # Order of checks matters — read top to bottom:
 #   1. Pre-existing / owner-handling chat            -> permanent silence
 #   2. You've personally replied in this chat        -> switch to silence
+#  2b. Social-referral flow already completed         -> permanent silence
 #   3. Scam-ish keywords                             -> flag, silence
 #   4. Media message (photo/doc/etc.) once mid-flow  -> flag, silence
 #   5. Already joined/registered                     -> flag, silence
 #   6. Hesitation                                    -> flag, silence
 #   7. Chit-chat with nothing actionable in it        -> flag (low priority), silence
-#   8. Brand-new contact already asking to pay/register -> signup link directly
+#   8. Brand-new contact with a social-referral opener  -> social welcome message
+#      Brand-new contact already asking to pay/register -> signup link directly
 #      Brand-new contact using the start prompt        -> send welcome message
-#      Brand-new contact NOT using either               -> flag, silence
+#      Brand-new contact NOT using any of the above     -> flag, silence
 #   9. Referral program question                      -> answer directly
 #  10. Clear "I'm ready / let's go / how do we continue" -> signup link
 #  11. Specific product question                     -> send earning opportunities
 #  12. Any reply right after the welcome              -> send earning opportunities
+# 12b. Any reply right after the social welcome        -> subtle explanation + channel link
 #  13. Unrecognised message at signup stage           -> resend signup link
 #  14. Unrecognised text at explained stage           -> flag, silence
 #  15. Anything else                                  -> silence, no chit-chat
@@ -2415,6 +2479,11 @@ async def handle_message(event, client):
             log.info(f"[{sender_name}] You've replied manually — bot silent from now on")
             return
 
+    # ── 2b. Social-referral flow already completed — stays silent for good ────
+    if stage == STAGE_SOCIAL_SENT:
+        log.info(f"[{sender_name}] Social-referral flow complete — silent")
+        return
+
     # ── 3. Scam-ish message — flag it, no auto-reply ──────────────────────────
     if text and is_scam_message(text):
         add_pending(chat_id, sender_name, username, "flagged", text)
@@ -2447,6 +2516,19 @@ async def handle_message(event, client):
 
     # ── 8. Brand-new contact ────────────────────────────────────────────────
     if stage == STAGE_NEW:
+        # Social-referral opener ("From TikTok, I'm Interested in getting
+        # started with Vireon") — runs its own shorter script instead of the
+        # main funnel: welcome, ask name, then a subtle explanation + the
+        # public Telegram channel link. See STAGE_SOCIAL_WELCOMED below.
+        if text and matches_social_interest(text):
+            await human_delay(event, client, 6.0, 11.0)
+            await send_reply(event, random.choice(SOCIAL_WELCOME_REPLIES))
+            set_stage(chat_id, STAGE_SOCIAL_WELCOMED, sender_name, username)
+            stats["new_chats_today"] += 1
+            pipeline["welcomed"] += 1
+            _record_action(sender_name, "welcome")
+            log.info(f"[{sender_name}] Social-referral opener — sent social welcome")
+            return
         # Already asking to pay/register ("I'm ready to make payments for
         # Vireon Premiere, please drop the payment link") — skip the pitch
         # entirely and just drop the signup/payment link with its write-up.
@@ -2519,6 +2601,18 @@ async def handle_message(event, client):
         pipeline["info_sent"] += 1
         _record_action(sender_name, "info")
         log.info(f"[{sender_name}] Sent: earning opportunities (name: {name!r})")
+        return
+
+    # ── 12b. Reply right after the social welcome = their name -> subtle
+    #         explanation + channel link. This is the last scripted message
+    #         in this flow — see STAGE_SOCIAL_SENT above for the silence.
+    if stage == STAGE_SOCIAL_WELCOMED:
+        name = extract_name(text, fallback=sender.first_name or "")
+        await human_delay(event, client, 5.0, 10.0)
+        await send_reply(event, SOCIAL_EXPLAINER_BODIES[0].format(name=name or "there"))
+        set_stage(chat_id, STAGE_SOCIAL_SENT, sender_name, username, name=name)
+        _record_action(sender_name, "info")
+        log.info(f"[{sender_name}] Sent: social explainer + channel link (name: {name!r})")
         return
 
     # ── 13. Unrecognised message at signup stage — resend the link ────────────
