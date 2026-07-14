@@ -26,13 +26,15 @@ through one fixed sequence:
      notification) so you can jump in personally. The bot never improvises
      small talk.
 
-A brand-new contact can also enter a second, separate flow instead — a
-social-referral opener (see matches_social_interest), e.g. "From TikTok,
-I'm Interested in getting started with Vireon". This runs a shorter script:
-welcome -> ask their name -> a subtle explanation of Vireon + the public
-Telegram channel link (SOCIAL_CHANNEL_URL) to self-register. Once that link
-is sent, the bot goes silent for that chat for good — nothing else is
-auto-replied.
+Any contact — brand-new or already mid-funnel — can also trigger a second,
+separate flow: a social-referral opener (see matches_social_interest), e.g.
+"From TikTok, I'm Interested in getting started with Vireon". Unlike the
+main funnel, this isn't restricted to first-time contacts — it fires for
+anyone who hasn't already been sent through this specific flow before, no
+matter what stage they're otherwise in. It runs a shorter script: welcome
+-> ask their name -> a subtle explanation of Vireon + the public Telegram
+channel link (SOCIAL_CHANNEL_URL) to self-register. Once that link is sent,
+the bot goes silent for that chat for good — nothing else is auto-replied.
 
 State survives restarts: chat progress + the pending-reply queue are written
 to STATE_FILE after every change, so a user who replies days later picks up
@@ -2387,10 +2389,11 @@ async def api_logs(request: Request):
 #   5. Already joined/registered                     -> flag, silence
 #   6. Hesitation                                    -> flag, silence
 #   7. Chit-chat with nothing actionable in it        -> flag (low priority), silence
-#   8. Brand-new contact with a social-referral opener  -> social welcome message
-#      Brand-new contact already asking to pay/register -> signup link directly
+#  7b. Social-referral opener, any contact who hasn't already been through
+#      this specific flow                              -> social welcome message
+#   8. Brand-new contact already asking to pay/register -> signup link directly
 #      Brand-new contact using the start prompt        -> send welcome message
-#      Brand-new contact NOT using any of the above     -> flag, silence
+#      Brand-new contact NOT using either                -> flag, silence
 #   9. Referral program question                      -> answer directly
 #  10. Clear "I'm ready / let's go / how do we continue" -> signup link
 #  11. Specific product question                     -> send earning opportunities
@@ -2514,21 +2517,27 @@ async def handle_message(event, client):
         log.info(f"[{sender_name}] Chit-chat — needs a reply")
         return
 
+    # ── 7b. Social-referral opener ("From TikTok, I'm Interested in getting
+    #        started with Vireon") — not limited to brand-new contacts. Any
+    #        contact who hasn't already been through this specific flow gets
+    #        it the first time they send this kind of message; once they
+    #        have (STAGE_SOCIAL_WELCOMED/STAGE_SOCIAL_SENT), it won't fire
+    #        again. Runs its own shorter script instead of the main funnel:
+    #        welcome, ask name, then a subtle explanation + the public
+    #        Telegram channel link. See STAGE_SOCIAL_WELCOMED below.
+    if text and matches_social_interest(text) and stage != STAGE_SOCIAL_WELCOMED:
+        await human_delay(event, client, 6.0, 11.0)
+        await send_reply(event, random.choice(SOCIAL_WELCOME_REPLIES))
+        set_stage(chat_id, STAGE_SOCIAL_WELCOMED, sender_name, username)
+        if stage == STAGE_NEW:
+            stats["new_chats_today"] += 1
+        pipeline["welcomed"] += 1
+        _record_action(sender_name, "welcome")
+        log.info(f"[{sender_name}] Social-referral opener — sent social welcome")
+        return
+
     # ── 8. Brand-new contact ────────────────────────────────────────────────
     if stage == STAGE_NEW:
-        # Social-referral opener ("From TikTok, I'm Interested in getting
-        # started with Vireon") — runs its own shorter script instead of the
-        # main funnel: welcome, ask name, then a subtle explanation + the
-        # public Telegram channel link. See STAGE_SOCIAL_WELCOMED below.
-        if text and matches_social_interest(text):
-            await human_delay(event, client, 6.0, 11.0)
-            await send_reply(event, random.choice(SOCIAL_WELCOME_REPLIES))
-            set_stage(chat_id, STAGE_SOCIAL_WELCOMED, sender_name, username)
-            stats["new_chats_today"] += 1
-            pipeline["welcomed"] += 1
-            _record_action(sender_name, "welcome")
-            log.info(f"[{sender_name}] Social-referral opener — sent social welcome")
-            return
         # Already asking to pay/register ("I'm ready to make payments for
         # Vireon Premiere, please drop the payment link") — skip the pitch
         # entirely and just drop the signup/payment link with its write-up.
