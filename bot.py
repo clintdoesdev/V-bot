@@ -2391,8 +2391,10 @@ async def api_logs(request: Request):
 #   7. Chit-chat with nothing actionable in it        -> flag (low priority), silence
 #  7b. Social-referral opener, any contact who hasn't already been through
 #      this specific flow                              -> social welcome message
-#   8. Brand-new contact already asking to pay/register -> signup link directly
-#      Brand-new contact using the start prompt        -> send welcome message
+#   8. Brand-new contact using the start prompt        -> send welcome message
+#      (checked first — the start prompt also happens to match join-intent
+#      phrasing, so it must win before the check below)
+#      Brand-new contact already asking to pay/register -> signup link directly
 #      Brand-new contact NOT using either                -> flag, silence
 #   9. Referral program question                      -> answer directly
 #  10. Clear "I'm ready / let's go / how do we continue" -> signup link
@@ -2538,6 +2540,19 @@ async def handle_message(event, client):
 
     # ── 8. Brand-new contact ────────────────────────────────────────────────
     if stage == STAGE_NEW:
+        # The official start prompt always runs the full welcome flow, even
+        # though it also happens to contain join-intent phrasing ("ready to
+        # register", "how do i get started") — checked first so it takes
+        # priority over the payment-ready fast-track below.
+        if text and matches_start_prompt(text):
+            await human_delay(event, client, 6.0, 11.0)
+            await send_reply(event, random.choice(WELCOME_REPLIES))
+            set_stage(chat_id, STAGE_WELCOMED, sender_name, username)
+            stats["new_chats_today"] += 1
+            pipeline["welcomed"] += 1
+            _record_action(sender_name, "welcome")
+            log.info(f"[{sender_name}] Sent: welcome")
+            return
         # Already asking to pay/register ("I'm ready to make payments for
         # Vireon Premiere, please drop the payment link") — skip the pitch
         # entirely and just drop the signup/payment link with its write-up.
@@ -2550,17 +2565,8 @@ async def handle_message(event, client):
             _record_action(sender_name, "signup")
             log.info(f"[{sender_name}] New contact already payment-ready — sent signup link directly")
             return
-        if not (text and matches_start_prompt(text)):
-            add_pending(chat_id, sender_name, username, "off_script", text or "[no text]")
-            log.info(f"[{sender_name}] New contact didn't use the start prompt — needs a reply")
-            return
-        await human_delay(event, client, 6.0, 11.0)
-        await send_reply(event, random.choice(WELCOME_REPLIES))
-        set_stage(chat_id, STAGE_WELCOMED, sender_name, username)
-        stats["new_chats_today"] += 1
-        pipeline["welcomed"] += 1
-        _record_action(sender_name, "welcome")
-        log.info(f"[{sender_name}] Sent: welcome")
+        add_pending(chat_id, sender_name, username, "off_script", text or "[no text]")
+        log.info(f"[{sender_name}] New contact didn't use the start prompt — needs a reply")
         return
 
     # ── 9. Referral program question — always answer ──────────────────────────
