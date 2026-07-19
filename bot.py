@@ -5,36 +5,41 @@ Railway-ready. Uses StringSession so no .session file needed.
 
 FLOW
 ----
-A brand-new contact only enters the scripted funnel if their first message
-matches the start prompt (see START_PROMPT_PHRASES) — the exact opener
-advertised behind your "Message us" link/button — OR already shows clear
-payment/join intent (see JOIN_KEYWORDS), e.g. "I'm ready to make payments
-for Vireon Premiere, please drop the payment link" — in which case the
-welcome/opportunities pitch is skipped and the signup link is sent
-immediately. Anything else from a brand-new contact is queued for your
-personal reply instead. Once someone's in the scripted flow, they go
-through one fixed sequence:
+Every brand-new contact gets the welcome message on their first message,
+whatever it says, and then goes through one fixed sequence:
   1. WELCOME     -> bot sends the Vireon Africa intro
   2. OPPORTUNITIES -> bot sends the about image with the earning-opportunities
                     list as its caption
-  3. SIGNUP      -> once they signal they're ready to join, bot sends the
-                    signup/referral link and the registration fee
-  4. HUMAN TAKEOVER -> anything that isn't a clean "next step" — someone
-     who didn't use the start prompt, already joined, is hesitating, making
-     small talk, or sending a flagged message — gets ZERO auto-reply. It's
-     queued on the dashboard under "Needs Your Reply" (with a push
-     notification) so you can jump in personally. The bot never improvises
-     small talk.
+  3. SIGNUP      -> once they signal they're ready to join (after both of the
+                    above have been sent), bot sends the signup/referral link
+                    and the registration fee
+  4. HUMAN TAKEOVER -> anything that isn't a clean "next step" — already
+     joined, hesitating, making small talk, or sending a flagged message —
+     gets ZERO auto-reply. It's queued on the dashboard under "Needs Your
+     Reply" (with a push notification) so you can jump in personally. The
+     bot never improvises small talk.
 
-Any contact — brand-new or already mid-funnel — can also trigger a second,
-separate flow: a social-referral opener (see matches_social_interest), e.g.
-"From TikTok, I'm Interested in getting started with Vireon". Unlike the
-main funnel, this isn't restricted to first-time contacts — it fires for
-anyone who hasn't already been sent through this specific flow before, no
-matter what stage they're otherwise in. It runs a shorter script: welcome
--> ask their name -> a subtle explanation of Vireon + the public Telegram
-channel link (SOCIAL_CHANNEL_URL) to self-register. Once that link is sent,
-the bot goes silent for that chat for good — nothing else is auto-replied.
+Two message types skip that staged sequence and are handled immediately, at
+ANY stage a contact is in (not just brand-new), and are checked before
+almost everything else:
+
+- An explicit payment-ready phrase (see PAYMENT_READY_PHRASES /
+  matches_payment_ready), e.g. "I'm ready to make payments for Vireon
+  Premiere, please drop the payment link" — always gets the full signup
+  write-up immediately, and is the one thing that bypasses the pause switch.
+  A bare "I am ready" with no mention of paying does NOT trigger this — it
+  only counts as join intent once welcome AND opportunities have both
+  already been sent (see JOIN_KEYWORDS / matches_join_intent).
+- A Facebook-referral opener (see matches_social_interest), e.g. "From
+  Facebook, I'm Interested in getting started with Vireon" — fires for
+  anyone who hasn't already been sent through this specific flow before, no
+  matter what stage they're otherwise in. Runs a shorter script: welcome ->
+  ask their name -> a subtle explanation of Vireon + the public Telegram
+  channel link (SOCIAL_CHANNEL_URL) to self-register. Once that link is
+  sent, the bot goes silent for that chat for good — nothing else is
+  auto-replied. Daily and all-time counts of this trigger are tracked in
+  stats (facebook_prompts_today / facebook_prompts_total) and surfaced to
+  TEST_USERNAMES accounts via the "stats" / "stats>>" DM command.
 
 State survives restarts: chat progress + the pending-reply queue are written
 to STATE_FILE after every change, so a user who replies days later picks up
@@ -78,7 +83,7 @@ WELCOME_REPLIES = [
     ),
 ]
 
-# ── Social-referral entry point: TikTok/Instagram/etc. "interested" openers
+# ── Facebook-referral entry point: Facebook/Instagram/etc. "interested" openers
 #    (see matches_social_interest). Shorter script than the main funnel —
 #    welcome, ask their name, then a subtle explanation + the public
 #    Telegram channel link to self-register. Nothing further is sent after
@@ -249,27 +254,33 @@ def is_scam_message(text: str) -> bool:
     return any(kw in t for kw in SCAM_KEYWORDS)
 
 
-# The exact opener advertised behind your "Message us" link/button, e.g.
-# t.me/YourVendor?text=... New contacts are only auto-welcomed if their first
-# message matches this — anything else from a brand-new contact is queued for
-# your personal reply instead of triggering the scripted funnel.
-START_PROMPT_PHRASES = [
-    "vireon vendor",
-    "ready to register",
+# Explicit, unambiguous payment/link requests, e.g. "I'm ready to make
+# payments for Vireon Premiere, please drop the payment link". Deliberately
+# separate from the broader JOIN_KEYWORDS/matches_join_intent below — a bare
+# "I am ready" with no mention of paying should NOT fast-track (see
+# handle_message step order), but a message that explicitly asks for the
+# payment link always should, at any stage, even while the bot is paused
+# (the only exception to the pause switch).
+PAYMENT_READY_PHRASES = [
+    "ready to make payment", "ready to make payments", "i want to make payment",
+    "i want to make payments", "ready to pay", "i'm ready to pay", "im ready to pay",
+    "drop the payment link", "send the payment link", "send me the payment link",
+    "payment link please", "vireon premiere payment", "pay for vireon premiere",
+    "pay for premiere", "make payment for vireon premiere",
 ]
 
-def matches_start_prompt(text: str) -> bool:
+def matches_payment_ready(text: str) -> bool:
     t = text.lower()
-    return any(p in t for p in START_PROMPT_PHRASES)
+    return any(p in t for p in PAYMENT_READY_PHRASES)
 
 
 # A second, separate opener for leads coming in from social media, e.g.
-# "From TikTok, I'm Interested in getting started with Vireon". Mentions a
+# "From Facebook, I'm Interested in getting started with Vireon". Mentions a
 # source PLUS interest in Vireon. Runs a shorter script than the main
 # funnel (see SOCIAL_WELCOME_REPLIES / SOCIAL_EXPLAINER_BODIES below) that
 # ends in the public Telegram channel link instead of the payment page.
 SOCIAL_SOURCE_PHRASES = [
-    "tiktok", "instagram", "facebook", "whatsapp status", "snapchat",
+    "facebook", "tiktok", "instagram", "whatsapp status", "snapchat",
     "youtube", "twitter", "from x", "saw this on", "saw an ad",
     "saw your video", "saw your post", "someone sent me this",
     "someone shared this", "referred me",
@@ -397,12 +408,6 @@ JOIN_KEYWORDS = [
     "send the link", "send me the link", "drop the link", "share the link",
     "link please", "signup link please", "send me the signup link",
     "send me the registration link", "registration link please",
-    # payment-ready phrasing
-    "ready to make payment", "ready to make payments", "i want to make payment",
-    "i want to make payments", "ready to pay", "i'm ready to pay", "im ready to pay",
-    "drop the payment link", "send the payment link", "send me the payment link",
-    "payment link please", "vireon premiere payment", "pay for vireon premiere",
-    "pay for premiere", "make payment for vireon premiere",
 ]
 
 # Words that negate readiness/action — short messages with these are NOT join intent
@@ -515,7 +520,8 @@ def load_state() -> bool:
                 entry = {
                     "date": saved_date,
                     **{k: data["stats"].get(k, 0) for k in
-                       ("messages_today", "new_chats_today", "replies_sent", "flags_total")},
+                       ("messages_today", "new_chats_today", "replies_sent", "flags_total",
+                        "facebook_prompts_today")},
                     "welcomed":     data.get("pipeline", {}).get("welcomed", 0),
                     "info_sent":    data.get("pipeline", {}).get("info_sent", 0),
                     "signup_sent": data.get("pipeline", {}).get("signup_sent", 0),
@@ -526,6 +532,9 @@ def load_state() -> bool:
                 pipeline.update({"welcomed": 0, "info_sent": 0, "signup_sent": 0})
                 stats_date = today
                 log.info(f"📅 Day rollover detected ({saved_date} → {today}) — stats reset")
+            # facebook_prompts_total is all-time and survives every rollover,
+            # unlike the rest of stats which only carries over on the same day.
+            stats["facebook_prompts_total"] = data["stats"].get("facebook_prompts_total", 0)
         log.info(f"Loaded persisted state — {len(chat_states)} known chats, {len(pending_review)} pending review")
         return True
     except Exception as e:
@@ -562,6 +571,7 @@ def _reset_daily_stats():
         "welcomed":         pipeline["welcomed"],
         "info_sent":        pipeline["info_sent"],
         "signup_sent":     pipeline["signup_sent"],
+        "facebook_prompts_today": stats["facebook_prompts_today"],
     })
     while len(daily_history) > 7:
         daily_history.pop(0)
@@ -570,6 +580,9 @@ def _reset_daily_stats():
     stats["replies_sent"]    = 0
     stats["referral_inquiries"] = 0
     stats["flags_total"]     = 0
+    stats["facebook_prompts_today"] = 0
+    # facebook_prompts_total is deliberately NOT reset here — it's an
+    # all-time counter that survives every daily rollover.
     pipeline["welcomed"]     = 0
     pipeline["info_sent"]    = 0
     pipeline["signup_sent"] = 0
@@ -611,7 +624,6 @@ def set_stage(chat_id: int, stage: str, sender_name: str = None, username: str =
 
 
 PENDING_REASON_META = {
-    "off_script":       {"label": "Didn't use the start prompt", "icon": "ph-chat-circle-dots",  "cls": "rb-chat"},
     "already_joined":   {"label": "Already joined/registered", "icon": "ph-receipt",             "cls": "rb-pay"},
     "hesitant":         {"label": "Hesitant / not ready",       "icon": "ph-hourglass-medium",   "cls": "rb-hesit"},
     "chitchat":         {"label": "Just chatting",              "icon": "ph-chat-teardrop-text", "cls": "rb-chat"},
@@ -660,6 +672,8 @@ stats: dict = {
     "replies_sent": 0,
     "referral_inquiries": 0,
     "flags_total": 0,
+    "facebook_prompts_today": 0,
+    "facebook_prompts_total": 0,
 }
 _push_executor = ThreadPoolExecutor(max_workers=2)
 
@@ -991,15 +1005,7 @@ async def catch_up_unreplied(client):
             log.warning(f"[{sender_name}] History check failed: {e}")
             continue
 
-        # No outgoing messages at all — truly a new contact. Only auto-welcome
-        # if their message used the start prompt; otherwise queue it for you.
-        last_msg = dialog.message
-        msg_text = getattr(last_msg, "raw_text", None) or "" if last_msg else ""
-        if not matches_start_prompt(msg_text):
-            add_pending(cid, sender_name, username, "off_script", msg_text or "[no text]")
-            log.info(f"[{sender_name}] Catch-up: didn't use the start prompt — queued for reply")
-            continue
-
+        # No outgoing messages at all — truly a new contact, welcome them.
         if bot_paused:
             log.info(f"[{sender_name}] Catch-up paused — stopping")
             break
@@ -1941,7 +1947,6 @@ DASHBOARD_HTML = """\
 
   // ── Needs Your Reply ─────────────────────────────────────────────────────
   var REASON_META = {
-    off_script:       {label:'Didn\'t use the start prompt', icon:'ph-chat-circle-dots', cls:'rb-chat'},
     already_joined:   {label:'Already joined/registered', icon:'ph-receipt',           cls:'rb-pay'},
     hesitant:         {label:'Hesitant / not ready',       icon:'ph-hourglass-medium',  cls:'rb-hesit'},
     chitchat:         {label:'Just chatting',              icon:'ph-chat-teardrop-text',cls:'rb-chat'},
@@ -2382,22 +2387,26 @@ async def api_logs(request: Request):
 #
 # Order of checks matters — read top to bottom:
 #   1. Pre-existing / owner-handling chat            -> permanent silence
+#   0. Bot paused (non-test users only)               -> suppressed, UNLESS
+#      the message is an explicit payment-ready phrase (checked here so the
+#      exemption doesn't cost an extra API call on every paused message)
 #   2. You've personally replied in this chat        -> switch to silence
 #  2b. Social-referral flow already completed         -> permanent silence
+#  2c. Explicit payment-ready phrase, any stage        -> signup link directly,
+#      even while paused (the only exception to the pause switch)
 #   3. Scam-ish keywords                             -> flag, silence
 #   4. Media message (photo/doc/etc.) once mid-flow  -> flag, silence
 #   5. Already joined/registered                     -> flag, silence
 #   6. Hesitation                                    -> flag, silence
 #   7. Chit-chat with nothing actionable in it        -> flag (low priority), silence
-#  7b. Social-referral opener, any contact who hasn't already been through
+#  7b. Facebook-referral opener, any contact who hasn't already been through
 #      this specific flow                              -> social welcome message
-#   8. Brand-new contact using the start prompt        -> send welcome message
-#      (checked first — the start prompt also happens to match join-intent
-#      phrasing, so it must win before the check below)
-#      Brand-new contact already asking to pay/register -> signup link directly
-#      Brand-new contact NOT using either                -> flag, silence
+#   8. Brand-new contact                              -> send welcome message
+#      (payment-ready and Facebook-referral openers never reach here — they
+#      were already handled above at 2c and 7b)
 #   9. Referral program question                      -> answer directly
-#  10. Clear "I'm ready / let's go / how do we continue" -> signup link
+#  10. Clear "I'm ready / let's go / how do we continue", excluding
+#      STAGE_WELCOMED                                  -> signup link
 #  11. Specific product question                     -> send earning opportunities
 #  12. Any reply right after the welcome              -> send earning opportunities
 # 12b. Any reply right after the social welcome        -> subtle explanation + channel link
@@ -2441,7 +2450,7 @@ async def handle_message(event, client):
     #    fall through to the normal stage-aware funnel logic as usual ───────
     if is_test_user:
         cmd = text.lower().strip().lstrip("/")
-        if cmd in ("stats", "status"):
+        if cmd in ("stats", "status", "stats>>"):
             await send_reply(event, build_stats_reply())
             log.info(f"[{sender_name}] Test user requested stats")
             return
@@ -2467,14 +2476,17 @@ async def handle_message(event, client):
             log.info(f"[{sender_name}] Test user restart trigger (>>) — reset and sent welcome")
             return
     else:
-        # ── 0. Bot paused — master kill switch ─────────────────────────────────
-        if bot_paused:
-            log.info(f"[{sender_name}] Bot paused — reply suppressed")
-            return
-
         # ── 1. Pre-existing / owner-handling contact — permanent silence ───────
         if stage == STAGE_OWNER:
             log.info(f"[{sender_name}] Owner-handled contact — silent")
+            return
+
+        # ── 0. Bot paused — master kill switch. An explicit payment-ready
+        #      phrase is the only exception, so check for it before
+        #      suppressing (cheap in-memory check, no API call needed).
+        is_payment_ready = bool(text and matches_payment_ready(text))
+        if bot_paused and not is_payment_ready:
+            log.info(f"[{sender_name}] Bot paused — reply suppressed")
             return
 
         # ── 2. You replied manually — hand the chat over for good ─────────────
@@ -2487,6 +2499,23 @@ async def handle_message(event, client):
     # ── 2b. Social-referral flow already completed — stays silent for good ────
     if stage == STAGE_SOCIAL_SENT:
         log.info(f"[{sender_name}] Social-referral flow complete — silent")
+        return
+
+    # ── 2c. Explicit payment-ready phrase ("I'm ready to make payments for
+    #        Vireon Premiere, please drop the payment link") — always sends
+    #        the full signup write-up, at any stage, and bypasses the pause
+    #        switch above (the only exception to it). Owner-silence and the
+    #        completed-social-flow silence still take priority.
+    if text and matches_payment_ready(text):
+        was_new = stage == STAGE_NEW
+        await human_delay(event, client, 5.0, 10.0)
+        await send_reply(event, build_signup_message(get_name(chat_id)))
+        set_stage(chat_id, STAGE_SIGNUP, sender_name, username)
+        if was_new:
+            stats["new_chats_today"] += 1
+        pipeline["signup_sent"] += 1
+        _record_action(sender_name, "signup")
+        log.info(f"[{sender_name}] Payment-ready phrase — sent signup link directly (bypasses pause)")
         return
 
     # ── 3. Scam-ish message — flag it, no auto-reply ──────────────────────────
@@ -2519,8 +2548,8 @@ async def handle_message(event, client):
         log.info(f"[{sender_name}] Chit-chat — needs a reply")
         return
 
-    # ── 7b. Social-referral opener ("From TikTok, I'm Interested in getting
-    #        started with Vireon") — not limited to brand-new contacts. Any
+    # ── 7b. Facebook-referral opener ("From Facebook, I'm Interested in
+    #        getting started with Vireon") — not limited to brand-new contacts. Any
     #        contact who hasn't already been through this specific flow gets
     #        it the first time they send this kind of message; once they
     #        have (STAGE_SOCIAL_WELCOMED/STAGE_SOCIAL_SENT), it won't fire
@@ -2534,39 +2563,24 @@ async def handle_message(event, client):
         if stage == STAGE_NEW:
             stats["new_chats_today"] += 1
         pipeline["welcomed"] += 1
+        stats["facebook_prompts_today"] += 1
+        stats["facebook_prompts_total"] += 1
         _record_action(sender_name, "welcome")
-        log.info(f"[{sender_name}] Social-referral opener — sent social welcome")
+        log.info(f"[{sender_name}] Facebook-referral opener — sent social welcome")
         return
 
-    # ── 8. Brand-new contact ────────────────────────────────────────────────
+    # ── 8. Brand-new contact — always send the welcome message and let the
+    #      normal staged flow continue from there (name capture next, then
+    #      opportunities, etc.). Facebook-referral and payment-ready openers
+    #      never reach here — they're handled above at 7b and 2c.
     if stage == STAGE_NEW:
-        # The official start prompt always runs the full welcome flow, even
-        # though it also happens to contain join-intent phrasing ("ready to
-        # register", "how do i get started") — checked first so it takes
-        # priority over the payment-ready fast-track below.
-        if text and matches_start_prompt(text):
-            await human_delay(event, client, 6.0, 11.0)
-            await send_reply(event, random.choice(WELCOME_REPLIES))
-            set_stage(chat_id, STAGE_WELCOMED, sender_name, username)
-            stats["new_chats_today"] += 1
-            pipeline["welcomed"] += 1
-            _record_action(sender_name, "welcome")
-            log.info(f"[{sender_name}] Sent: welcome")
-            return
-        # Already asking to pay/register ("I'm ready to make payments for
-        # Vireon Premiere, please drop the payment link") — skip the pitch
-        # entirely and just drop the signup/payment link with its write-up.
-        if text and matches_join_intent(text):
-            await human_delay(event, client, 5.0, 10.0)
-            await send_reply(event, build_signup_message())
-            set_stage(chat_id, STAGE_SIGNUP, sender_name, username)
-            stats["new_chats_today"] += 1
-            pipeline["signup_sent"] += 1
-            _record_action(sender_name, "signup")
-            log.info(f"[{sender_name}] New contact already payment-ready — sent signup link directly")
-            return
-        add_pending(chat_id, sender_name, username, "off_script", text or "[no text]")
-        log.info(f"[{sender_name}] New contact didn't use the start prompt — needs a reply")
+        await human_delay(event, client, 6.0, 11.0)
+        await send_reply(event, random.choice(WELCOME_REPLIES))
+        set_stage(chat_id, STAGE_WELCOMED, sender_name, username)
+        stats["new_chats_today"] += 1
+        pipeline["welcomed"] += 1
+        _record_action(sender_name, "welcome")
+        log.info(f"[{sender_name}] Sent: welcome")
         return
 
     # ── 9. Referral program question — always answer ──────────────────────────
@@ -2578,8 +2592,12 @@ async def handle_message(event, client):
         log.info(f"[{sender_name}] Sent: referral program info")
         return
 
-    # ── 10. Clear join intent — signup link (or a short reminder) ─────────────
-    if text and matches_join_intent(text):
+    # ── 10. Clear join intent — signup link (or a short reminder). Excludes
+    #        STAGE_WELCOMED so a generic "I am ready" reply right after the
+    #        welcome is still treated as their name (step 12) and gets the
+    #        opportunities list — the payment link only follows a generic
+    #        readiness signal once both welcome AND opportunities are out.
+    if text and stage != STAGE_WELCOMED and matches_join_intent(text):
         if stage == STAGE_SIGNUP:
             await human_delay(event, client, 3.0, 6.0)
             await send_reply(event, SIGNUP_LINK_REMINDER)
@@ -2681,6 +2699,8 @@ def build_stats_reply() -> str:
         f"Welcomed: {pipeline['welcomed']}\n"
         f"Info sent: {pipeline['info_sent']}\n"
         f"Signup links sent: {pipeline['signup_sent']}\n\n"
+        f"Facebook prompts today: {stats['facebook_prompts_today']}\n"
+        f"Facebook prompts total: {stats['facebook_prompts_total']}\n\n"
         f"Known chats: {len(chat_states)}\n"
         f"Needs your reply (pending): {len(pending_review)}\n"
         f"Push subscriptions: {len(push_subscriptions)}"
