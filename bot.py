@@ -2391,9 +2391,10 @@ async def api_logs(request: Request):
 #      the message is an explicit payment-ready phrase (checked here so the
 #      exemption doesn't cost an extra API call on every paused message)
 #   2. You've personally replied in this chat        -> switch to silence
-#  2b. Social-referral flow already completed         -> permanent silence
-#  2c. Explicit payment-ready phrase, any stage        -> signup link directly,
-#      even while paused (the only exception to the pause switch)
+#  2b. Explicit payment-ready phrase, any stage        -> signup link directly,
+#      even while paused (the only exception to the pause switch) and even
+#      after the Facebook-referral flow below has already completed
+#  2c. Social-referral flow already completed         -> permanent silence
 #   3. Scam-ish keywords                             -> flag, silence
 #   4. Media message (photo/doc/etc.) once mid-flow  -> flag, silence
 #   5. Already joined/registered                     -> flag, silence
@@ -2496,16 +2497,14 @@ async def handle_message(event, client):
             log.info(f"[{sender_name}] You've replied manually — bot silent from now on")
             return
 
-    # ── 2b. Social-referral flow already completed — stays silent for good ────
-    if stage == STAGE_SOCIAL_SENT:
-        log.info(f"[{sender_name}] Social-referral flow complete — silent")
-        return
-
-    # ── 2c. Explicit payment-ready phrase ("I'm ready to make payments for
+    # ── 2b. Explicit payment-ready phrase ("I'm ready to make payments for
     #        Vireon Premiere, please drop the payment link") — always sends
-    #        the full signup write-up, at any stage, and bypasses the pause
-    #        switch above (the only exception to it). Owner-silence and the
-    #        completed-social-flow silence still take priority.
+    #        the full signup write-up, at ANY stage, including after the
+    #        Facebook-referral flow has already completed (checked before
+    #        that silence below — a ready-to-pay lead should never be
+    #        dropped just because they already went through that flow), and
+    #        bypasses the pause switch above (the only exception to it).
+    #        Owner-silence still takes priority over this.
     if text and matches_payment_ready(text):
         was_new = stage == STAGE_NEW
         await human_delay(event, client, 5.0, 10.0)
@@ -2516,6 +2515,11 @@ async def handle_message(event, client):
         pipeline["signup_sent"] += 1
         _record_action(sender_name, "signup")
         log.info(f"[{sender_name}] Payment-ready phrase — sent signup link directly (bypasses pause)")
+        return
+
+    # ── 2c. Social-referral flow already completed — stays silent for good ────
+    if stage == STAGE_SOCIAL_SENT:
+        log.info(f"[{sender_name}] Social-referral flow complete — silent")
         return
 
     # ── 3. Scam-ish message — flag it, no auto-reply ──────────────────────────
