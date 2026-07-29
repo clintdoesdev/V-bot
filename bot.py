@@ -31,15 +31,14 @@ almost everything else:
   only counts as join intent once welcome AND opportunities have both
   already been sent (see JOIN_KEYWORDS / matches_join_intent).
 - A Facebook-referral opener (see matches_social_interest), e.g. "From
-  Facebook, I'm Interested in getting started with Vireon" — fires for
-  anyone who hasn't already been sent through this specific flow before, no
-  matter what stage they're otherwise in. Runs a shorter script: welcome ->
-  ask their name -> a subtle explanation of Vireon + the public Telegram
-  channel link (SOCIAL_CHANNEL_URL) to self-register. Once that link is
-  sent, the bot goes silent for that chat for good — nothing else is
-  auto-replied. Daily and all-time counts of this trigger are tracked in
-  stats (facebook_prompts_today / facebook_prompts_total) and surfaced to
-  TEST_USERNAMES accounts via the "stats" / "stats>>" DM command.
+  Facebook, I'm Interested in getting started with Vireon". This is always
+  counted in stats (facebook_prompts_today / facebook_prompts_total —
+  surfaced to TEST_USERNAMES accounts via "stats" / "stats>>"), but its
+  dedicated shorter script (welcome -> ask their name -> a subtle
+  explanation of Vireon + the public Telegram channel link, then silent for
+  good) only runs when FACEBOOK_FLOW_ENABLED is set — off by default for
+  now, so a Facebook-style opener is just handled by the main funnel above
+  like any other message.
 
 State survives restarts: chat progress + the pending-reply queue are written
 to STATE_FILE after every change, so a user who replies days later picks up
@@ -65,6 +64,13 @@ SIGNUP_URL = os.environ.get("SIGNUP_URL", "https://vireonwebsite.com.ng/payments
 # One-time registration fee to unlock Vireon Premiere and the full set of
 # earning features. Quoted wherever a reply mentions the cost of joining.
 REGISTRATION_FEE = os.environ.get("REGISTRATION_FEE", "₦14,500")
+
+# Master switch for the separate Facebook-referral flow (short welcome ->
+# name -> subtle explanation + channel link). Off by default — while off,
+# a Facebook-style opener ("From Facebook, I'm Interested in...") is just
+# handled by the main funnel like any other message, instead of getting its
+# own shorter script. Set FACEBOOK_FLOW_ENABLED=true to turn it back on.
+FACEBOOK_FLOW_ENABLED = os.environ.get("FACEBOOK_FLOW_ENABLED", "false").lower() == "true"
 
 # Image sent alongside step 2 (the earning-opportunities message).
 ABOUT_IMAGE_URL = os.environ.get(
@@ -2400,10 +2406,12 @@ async def api_logs(request: Request):
 #   5. Already joined/registered                     -> flag, silence
 #   6. Hesitation                                    -> flag, silence
 #   7. Chit-chat with nothing actionable in it        -> flag (low priority), silence
-#  7b. Facebook-referral opener, any contact who hasn't already been through
-#      this specific flow                              -> social welcome message
+#  7b. Facebook-referral opener, counted in stats either way; sends its own
+#      social welcome message only if FACEBOOK_FLOW_ENABLED (off by
+#      default) — otherwise falls through to the main funnel below
 #   8. Brand-new contact                              -> send welcome message
-#      (payment-ready and Facebook-referral openers never reach here — they
+#      (payment-ready openers never reach here, and Facebook-referral
+#      openers only stop here when the flow above is enabled — they
 #      were already handled above at 2c and 7b)
 #   9. Referral program question                      -> answer directly
 #  10. Clear "I'm ready / let's go / how do we continue", excluding
@@ -2560,18 +2568,24 @@ async def handle_message(event, client):
     #        again. Runs its own shorter script instead of the main funnel:
     #        welcome, ask name, then a subtle explanation + the public
     #        Telegram channel link. See STAGE_SOCIAL_WELCOMED below.
+    #        The reply itself is currently OFF (FACEBOOK_FLOW_ENABLED) — the
+    #        message is still counted in the Facebook-prompt stats either
+    #        way, but while off it falls through to the main funnel instead
+    #        of getting this shorter script.
     if text and matches_social_interest(text) and stage != STAGE_SOCIAL_WELCOMED:
-        await human_delay(event, client, 6.0, 11.0)
-        await send_reply(event, random.choice(SOCIAL_WELCOME_REPLIES))
-        set_stage(chat_id, STAGE_SOCIAL_WELCOMED, sender_name, username)
-        if stage == STAGE_NEW:
-            stats["new_chats_today"] += 1
-        pipeline["welcomed"] += 1
         stats["facebook_prompts_today"] += 1
         stats["facebook_prompts_total"] += 1
-        _record_action(sender_name, "welcome")
-        log.info(f"[{sender_name}] Facebook-referral opener — sent social welcome")
-        return
+        if FACEBOOK_FLOW_ENABLED:
+            await human_delay(event, client, 6.0, 11.0)
+            await send_reply(event, random.choice(SOCIAL_WELCOME_REPLIES))
+            set_stage(chat_id, STAGE_SOCIAL_WELCOMED, sender_name, username)
+            if stage == STAGE_NEW:
+                stats["new_chats_today"] += 1
+            pipeline["welcomed"] += 1
+            _record_action(sender_name, "welcome")
+            log.info(f"[{sender_name}] Facebook-referral opener — sent social welcome")
+            return
+        log.info(f"[{sender_name}] Facebook-referral opener detected (flow disabled) — falling through to main funnel")
 
     # ── 8. Brand-new contact — always send the welcome message and let the
     #      normal staged flow continue from there (name capture next, then
