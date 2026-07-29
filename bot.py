@@ -934,7 +934,11 @@ async def preload_existing_chats(client):
 
 
 async def catch_up_unreplied(client):
-    """On startup, welcome every contact who messaged today with no reply yet.
+    """On startup, welcome every contact with an unreplied message, no matter
+    how long ago it arrived (hours, days — there's no age cutoff). The real
+    safety net is Phase 3 below: real Telegram history is checked for every
+    candidate, so anyone you've actually already talked to is skipped
+    regardless of this catch-up pass.
 
     Phase 1 — collect candidates from dialog list (no per-dialog API calls).
     Phase 2 — sort oldest-first (first come, first served).
@@ -943,8 +947,6 @@ async def catch_up_unreplied(client):
                Only truly first-time contacts get the welcome.
                Sends with a minimal 0.5 s gap to stay under flood limits.
     """
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=12)
-
     # ── Phase 1: collect ──────────────────────────────────────────────────────
     candidates = []  # (msg_date, dialog, cs, stage)
     try:
@@ -964,8 +966,6 @@ async def catch_up_unreplied(client):
             msg_date = last_msg.date
             if msg_date.tzinfo is None:
                 msg_date = msg_date.replace(tzinfo=timezone.utc)
-            if msg_date < cutoff:
-                continue
             candidates.append((msg_date, dialog, cs, stage))
     except Exception as e:
         log.warning(f"Catch-up scan error: {e}")
