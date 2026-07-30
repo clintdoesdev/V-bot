@@ -72,12 +72,6 @@ REGISTRATION_FEE = os.environ.get("REGISTRATION_FEE", "₦14,500")
 # own shorter script. Set FACEBOOK_FLOW_ENABLED=true to turn it back on.
 FACEBOOK_FLOW_ENABLED = os.environ.get("FACEBOOK_FLOW_ENABLED", "false").lower() == "true"
 
-# Image sent alongside step 2 (the earning-opportunities message).
-ABOUT_IMAGE_URL = os.environ.get(
-    "ABOUT_IMAGE_URL",
-    "https://vireonwebsite.com.ng/assets/images/about.jpg",
-)
-
 # ── Step 1: first contact — a short Vireon Africa welcome, then ask their
 #    name. Kept to 4 lines max so it reads well as a chat bubble.
 WELCOME_REPLIES = [
@@ -115,64 +109,49 @@ SOCIAL_EXPLAINER_BODIES = [
     ),
 ]
 
-# ── Step 2: earning opportunities — sent as an image (ABOUT_IMAGE_URL) with
-#    this text as the caption. Each feature gets its own line with a blank
-#    line between them so it's easy to scan on a phone. Everything is framed
-#    in 2nd person ("you earn/pocket/withdraw/pay") rather than describing
-#    the feature in the abstract. Each entry is a variation; the bot picks
-#    one at random.
-OPPORTUNITIES_BODIES = [
-    (
-        "💰 VIREON EARNING OPPORTUNITIES\n\n"
-        "You get to earn through multiple features on one platform.\n\n"
-        "📊 Surveys – You earn up to £5 per approved survey.\n\n"
-        "💬 Vireon Converse – You get paid for remote chat, virtual assistance, research, and "
-        "client support tasks.\n\n"
-        "🧠 Vireon IQ – You pocket £5 for every approved movie trailer or content review.\n\n"
-        "📞 CallCash – You earn up to ₦13,333 (£6.35) from qualifying international calls.\n\n"
-        "🔍 Google Monetization – You collect up to £5 daily from simple Google-related "
-        "activities.\n\n"
-        "📌 Pin-to-Profit – You earn up to £3 through Pinterest activities.\n\n"
-        "🔥 Daily Login Streak – You bank up to £30 (₦60,000) every 30-day streak.\n\n"
-        "👻 Snap Pro – You earn £50 for approved Snapchat sounds, £5 per sound use, or up to "
-        "£5 per approved post.\n\n"
-        "✖️ X Revenue Program – You receive a £3 welcome reward plus ongoing campaign "
-        "earnings.\n\n"
-        "🤝 Referral Rewards – You earn onboarding bonuses, partner rewards, and indirect "
-        "commissions.\n\n"
-        "💳 QuickLoan & EasyOwn – You get access to collateral-free loans and can buy gadgets "
-        "on installment using your Vireon earnings.\n\n"
-        "💸 Withdrawal Options – You get to withdraw via Bank Transfer, Vireon Wallet/Credit, "
-        "or VTU (Airtime & Data).\n\n"
-        f"💳 Registration Fee – You pay a one-time {REGISTRATION_FEE} to unlock Vireon Premiere "
-        "and every earning feature above.\n\n"
-        "Are you ready to register? 🚀"
-    ),
-]
+# ── Step 2: earning opportunities — plain text, no image. Fixed template
+#    (not randomized) with a {name} placeholder filled in by
+#    build_opportunities_message() below.
+OPPORTUNITIES_MESSAGE = (
+    "Great to meet you, {name}! 🎉\n\n"
+    "💙 HOW VIREON FUNCTIONS 💙\n\n"
+    "Vireon is a digital income platform where you earn through surveys, remote work, content "
+    "reviews, calls, social media tasks, referrals, and more.\n\n"
+    "🏆 MEMBERSHIP\n"
+    f"• Registration Fee – {REGISTRATION_FEE} (One-time)\n\n"
+    "💸 EARNING OPPORTUNITIES\n"
+    "• 📊 Surveys – Up to £5\n"
+    "• 💬 Vireon Converse – Remote work\n"
+    "• 🧠 Vireon IQ – £5 per approved review\n"
+    "• 📞 CallCash – Up to ₦13,333\n"
+    "• 🔍 Google Monetization – Up to £5 daily\n"
+    "• 📌 Pin-to-Profit – Up to £3\n"
+    "• 👻 Snap Pro – Up to £50\n"
+    "• ✖️ X Revenue Program – £3 welcome bonus\n\n"
+    "🔥 BONUSES\n"
+    "• 🤝 Referral Rewards\n"
+    "• 🎁 Daily Login Streak – Up to £30 every 30 days\n\n"
+    "💳 EXTRA BENEFITS\n"
+    "• QuickLoan (Collateral-free)\n"
+    "• EasyOwn (Installment purchases)\n\n"
+    "🏦 WITHDRAWALS\n"
+    "Withdraw via Bank Transfer, Vireon Wallet/Credit, or VTU.\n\n"
+    "✅ Register once and unlock every earning feature.\n\n"
+    "Are you ready to Register? 🚀"
+)
 
-# ── Step 3: signup link (personalised opener is added in code) ────────────
-SIGNUP_LINK_BODIES = [
-    (
-        "Here's how to get started. Tap the link below, create your Vireon Africa account, then "
-        f"join Vireon Premiere ({REGISTRATION_FEE}) to unlock every earning feature above.\n\n"
-        f"👇 {SIGNUP_URL}\n\n"
-        "Quick and straightforward, let's get you earning 🔥"
-    ),
-    (
-        "Joining only takes a couple of minutes. Click the link below, register your account, "
-        f"then complete the {REGISTRATION_FEE} Vireon Premiere registration to start earning "
-        "from surveys, referrals, and every other feature above.\n\n"
-        f"👇 {SIGNUP_URL}\n\n"
-        "Get in now and build your first stream of income 🔥"
-    ),
-    (
-        "Here are the quick steps to get you in. Open the link below, complete your "
-        f"registration, then join Vireon Premiere ({REGISTRATION_FEE}) to unlock the earning "
-        "features and start cashing out.\n\n"
-        f"👇 {SIGNUP_URL}\n\n"
-        "Let's get you earning 🔥"
-    ),
-]
+# ── Step 3: signup link — plain fixed template with a {name} placeholder,
+#    filled in by build_signup_message() below.
+SIGNUP_MESSAGE = (
+    "🟡 Perfect, {name}! You're just one step away from getting started with Vireon.\n\n"
+    "Quick steps to get you in:\n\n"
+    "1️⃣ Open the link below\n"
+    "2️⃣ Finish your payment\n"
+    "3️⃣ Send your payment receipt back here\n\n"
+    "As soon as it's confirmed, you're live within 1 hour 🚀\n\n"
+    f"👇 {SIGNUP_URL}\n\n"
+    "Let's get you earning 🔥"
+)
 
 SIGNUP_LINK_REMINDER = (
     "Here's your signup link again.\n"
@@ -2635,7 +2614,7 @@ async def handle_message(event, client):
     if text and matches_info_request(text):
         name = get_name(chat_id)
         await human_delay(event, client, 5.0, 9.0)
-        await send_reply_with_image(event, build_opportunities_message(name), ABOUT_IMAGE_URL)
+        await send_reply(event, build_opportunities_message(name))
         if stage in (STAGE_NEW, STAGE_WELCOMED):
             set_stage(chat_id, STAGE_EXPLAINED, sender_name, username)
             pipeline["info_sent"] += 1
@@ -2647,7 +2626,7 @@ async def handle_message(event, client):
     if stage == STAGE_WELCOMED:
         name = extract_name(text, fallback=sender.first_name or "")
         await human_delay(event, client, 5.0, 10.0)
-        await send_reply_with_image(event, build_opportunities_message(name), ABOUT_IMAGE_URL)
+        await send_reply(event, build_opportunities_message(name))
         set_stage(chat_id, STAGE_EXPLAINED, sender_name, username, name=name)
         pipeline["info_sent"] += 1
         _record_action(sender_name, "info")
@@ -2685,14 +2664,11 @@ async def handle_message(event, client):
 
 
 def build_opportunities_message(name: str = "") -> str:
-    opener = f"Great to meet you, {name}! 🎉\n\n" if name else "Great to meet you! 🎉\n\n"
-    return opener + random.choice(OPPORTUNITIES_BODIES)
+    return OPPORTUNITIES_MESSAGE.format(name=name or "there")
 
 
 def build_signup_message(name: str = "") -> str:
-    who = name or "friend"
-    opener = f"🟡 Perfect, {who}! You're just one step away from earning with Vireon Africa.\n\n"
-    return opener + random.choice(SIGNUP_LINK_BODIES)
+    return SIGNUP_MESSAGE.format(name=name or "friend")
 
 
 def build_stats_reply() -> str:
