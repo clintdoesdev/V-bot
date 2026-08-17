@@ -222,6 +222,7 @@ STAGE_SIGNUP   = "signup_sent"     # signup/referral link has been sent
 STAGE_OWNER    = "owner_handling"  # pre-existing contact, or you stepped in manually — bot is silent forever
 STAGE_SOCIAL_WELCOMED = "social_welcomed"  # social-referral welcome sent, waiting on name
 STAGE_SOCIAL_SENT     = "social_link_sent" # subtle explanation + t.me link sent — done, silent
+STAGE_RECEIPT_REQUESTED = "receipt_requested"  # told them to drop their receipt — done, silent
 
 # ─── Scam filter ─────────────────────────────────────────────────────────────
 SCAM_KEYWORDS = [
@@ -257,6 +258,32 @@ PAYMENT_READY_PHRASES = [
 def matches_payment_ready(text: str) -> bool:
     t = text.lower()
     return any(p in t for p in PAYMENT_READY_PHRASES)
+
+
+# Someone reporting they've ALREADY paid, e.g. "Just made payments for
+# vireon, here's my receipt" — different from PAYMENT_READY_PHRASES above
+# (which is "I want to pay, send the link"). Gets exactly one reply asking
+# them to drop the receipt file itself, then the bot goes silent for good —
+# a human needs to actually look at and confirm the receipt.
+PAYMENT_RECEIPT_PHRASES = [
+    "here's my receipt", "heres my receipt", "here is my receipt",
+    "here's the receipt", "heres the receipt", "here is the receipt",
+    "attached is my receipt", "receipt attached", "my payment receipt",
+    "just made payment", "just made payments", "i just paid", "i've paid",
+    "ive paid", "i have paid", "i already paid", "payment done",
+    "payment made", "i made the payment", "i made payment",
+    "sent the payment", "i sent payment", "i've made payment",
+    "ive made payment", "i have made payment", "i don pay", "i don do payment",
+]
+
+def matches_payment_receipt(text: str) -> bool:
+    t = text.lower()
+    return any(p in t for p in PAYMENT_RECEIPT_PHRASES)
+
+
+PAYMENT_RECEIPT_REPLY = (
+    "Got it — please drop your payment receipt right here so it can be confirmed. ✅"
+)
 
 
 # A second, separate opener for leads coming in from social media, e.g.
@@ -1845,6 +1872,7 @@ DASHBOARD_HTML = """\
     info:     {lbl:'EXPLAIN',  cls:'ab-info'},
     signup:   {lbl:'SIGNUP',   cls:'ab-payment'},
     referral: {lbl:'REFERRAL', cls:'ab-prime'},
+    receipt:  {lbl:'RECEIPT',  cls:'ab-payment'},
     flag:     {lbl:'FLAGGED',  cls:'ab-flag'},
   };
 
@@ -2380,6 +2408,9 @@ async def api_logs(request: Request):
 #      even while paused (the only exception to the pause switch) and even
 #      after the Facebook-referral flow below has already completed
 #  2c. Social-referral flow already completed         -> permanent silence
+#  2d. Already asked them for their receipt           -> permanent silence
+#  2e. Claims payment already made ("here's my receipt")  -> one reply asking
+#      for the receipt file, then permanent silence
 #   3. Scam-ish keywords                             -> flag, silence
 #   4. Media message (photo/doc/etc.) once mid-flow  -> flag, silence
 #   5. Already joined/registered                     -> flag, silence
@@ -2507,6 +2538,23 @@ async def handle_message(event, client):
     # ── 2c. Social-referral flow already completed — stays silent for good ────
     if stage == STAGE_SOCIAL_SENT:
         log.info(f"[{sender_name}] Social-referral flow complete — silent")
+        return
+
+    # ── 2d. Already asked them to drop their receipt — stays silent for good ──
+    if stage == STAGE_RECEIPT_REQUESTED:
+        log.info(f"[{sender_name}] Already asked for receipt — silent")
+        return
+
+    # ── 2e. They say they've already paid ("Just made payments for vireon,
+    #        here's my receipt") — one reply asking them to drop the actual
+    #        receipt file, then permanently silent. A human needs to look at
+    #        and confirm the receipt from here, not the bot.
+    if text and matches_payment_receipt(text):
+        await human_delay(event, client, 4.0, 8.0)
+        await send_reply(event, PAYMENT_RECEIPT_REPLY)
+        set_stage(chat_id, STAGE_RECEIPT_REQUESTED, sender_name, username)
+        _record_action(sender_name, "receipt")
+        log.info(f"[{sender_name}] Claims payment made — asked for receipt, now silent")
         return
 
     # ── 3. Scam-ish message — flag it, no auto-reply ──────────────────────────
