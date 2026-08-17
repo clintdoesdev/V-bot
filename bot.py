@@ -72,6 +72,14 @@ REGISTRATION_FEE = os.environ.get("REGISTRATION_FEE", "₦14,500")
 # own shorter script. Set FACEBOOK_FLOW_ENABLED=true to turn it back on.
 FACEBOOK_FLOW_ENABLED = os.environ.get("FACEBOOK_FLOW_ENABLED", "false").lower() == "true"
 
+# Safety cap on the startup catch-up pass (see catch_up_unreplied). If STATE_FILE
+# isn't on persistent storage, a redeploy loses all memory of who's already
+# been contacted — every real lead then looks "unreplied" again, and without
+# a cap the bot would auto-blast the welcome message to everyone at once on
+# every single deploy. Above this many candidates in one run, nothing is
+# auto-sent — they're queued to "Needs Your Reply" for a manual look instead.
+CATCH_UP_SAFETY_CAP = int(os.environ.get("CATCH_UP_SAFETY_CAP", "10"))
+
 # ── Step 1: first contact — a short Vireon Africa welcome, then ask their
 #    name. Kept to 4 lines max so it reads well as a chat bubble.
 WELCOME_REPLIES = [
@@ -641,6 +649,7 @@ PENDING_REASON_META = {
     "chitchat":         {"label": "Just chatting",              "icon": "ph-chat-teardrop-text", "cls": "rb-chat"},
     "photo":            {"label": "Sent a photo / file",        "icon": "ph-image",              "cls": "rb-photo"},
     "flagged":          {"label": "Flagged message",            "icon": "ph-shield-warning",     "cls": "rb-flag"},
+    "catch_up_review":  {"label": "Catch-up: needs manual check", "icon": "ph-warning-circle",   "cls": "rb-flag"},
 }
 
 
@@ -978,6 +987,32 @@ async def catch_up_unreplied(client):
 
     if not candidates:
         log.info("📬 Catch-up check — no missed contacts found")
+        return
+
+    # ── Safety cap — see CATCH_UP_SAFETY_CAP. An unexpectedly large batch is
+    #    the signature of lost state, not a real backlog — don't auto-send to
+    #    anyone in that case, queue them all for a manual look instead.
+    if len(candidates) > CATCH_UP_SAFETY_CAP:
+        log.warning(
+            f"⚠️ Catch-up found {len(candidates)} unreplied contact(s), above the "
+            f"safety cap of {CATCH_UP_SAFETY_CAP} — NOT auto-welcoming anyone. This "
+            f"usually means the saved state was lost (e.g. STATE_FILE not on "
+            f"persistent storage across a redeploy), so the bot can't tell a real "
+            f"backlog from contacts you've already handled. Queuing all of them to "
+            f"'Needs Your Reply' instead — check STATE_FILE persistence before "
+            f"raising CATCH_UP_SAFETY_CAP."
+        )
+        for _, dialog, cs, stage in candidates:
+            cid = dialog.entity.id
+            entity = dialog.entity
+            sender_name = (
+                f"@{entity.username}" if getattr(entity, "username", None)
+                else (getattr(entity, "first_name", None) or str(cid))
+            )
+            username = getattr(entity, "username", None)
+            last_msg = dialog.message
+            text = getattr(last_msg, "raw_text", None) or "" if last_msg else ""
+            add_pending(cid, sender_name, username, "catch_up_review", text or "[no text]")
         return
 
     # ── Phase 2: oldest first (first come, first served) ─────────────────────
@@ -1964,7 +1999,8 @@ DASHBOARD_HTML = """\
     hesitant:         {label:'Hesitant / not ready',       icon:'ph-hourglass-medium',  cls:'rb-hesit'},
     chitchat:         {label:'Just chatting',              icon:'ph-chat-teardrop-text',cls:'rb-chat'},
     photo:            {label:'Sent a photo / file',        icon:'ph-image',             cls:'rb-photo'},
-    flagged:          {label:'Flagged message',            icon:'ph-shield-warning',    cls:'rb-flag'}
+    flagged:          {label:'Flagged message',            icon:'ph-shield-warning',    cls:'rb-flag'},
+    catch_up_review:  {label:'Catch-up: needs manual check', icon:'ph-warning-circle',  cls:'rb-flag'}
   };
   var lastPendingIds = [];
   function timeAgo(iso) {
